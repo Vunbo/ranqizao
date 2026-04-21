@@ -1,0 +1,1 @@
+export { SafetyView } from './SafetyView';
