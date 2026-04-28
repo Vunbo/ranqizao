@@ -75,7 +75,7 @@ function unique(values) {
 }
 
 function parseScriptSection(content) {
-  const match = content.match(/<script>([\s\S]*?)<\/script>/)
+  const match = content.match(/<script\b[^>]*>([\s\S]*?)<\/script>/)
   return match ? match[1] : ''
 }
 
@@ -97,7 +97,10 @@ function collectVariantRequests() {
     const content = fs.readFileSync(file, 'utf8')
     const script = parseScriptSection(content)
     const scriptIcons = unique(Array.from(script.matchAll(/icon:\s*'([^']+)'/g)).map((match) => match[1]))
-    const scriptColors = unique(Array.from(script.matchAll(/color:\s*'((?:#[0-9A-Fa-f]{6}))'/g)).map((match) => match[1]))
+    const scriptColors = unique([
+      ...Array.from(script.matchAll(/color:\s*'((?:#[0-9A-Fa-f]{6}))'/g)).map((match) => match[1]),
+      ...extractHexColors(script),
+    ])
     const tags = content.match(/<app-icon\b[\s\S]*?\/>/g) || []
 
     for (const tag of tags) {
@@ -123,7 +126,13 @@ function collectVariantRequests() {
       if (attrs.color) {
         colors = [attrs.color]
       } else if (attrs[':color']) {
-        colors = unique(extractHexColors(attrs[':color']))
+        const dynamicExpr = attrs[':color']
+        const literalColors = extractHexColors(dynamicExpr)
+        const containsDynamicColorRef = /(?:^|[^A-Za-z])(flameColor|glowColor|\w+Color|\w+\.color)\b/.test(dynamicExpr)
+        colors = unique([
+          ...literalColors,
+          ...(containsDynamicColorRef ? scriptColors : []),
+        ])
         if (!colors.length && /\.color\b/.test(attrs[':color'])) {
           colors = scriptColors
         }

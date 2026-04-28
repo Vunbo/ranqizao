@@ -5,6 +5,10 @@ import {
   type DatabaseExecutor,
 } from '../../database/client';
 import { HttpError } from '../../shared/http';
+import {
+  deriveLocationRegionPath,
+  normalizeLocationForStorage,
+} from '../../shared/location';
 
 interface DeviceAccessRow {
   id: string;
@@ -225,7 +229,10 @@ async function createDeviceRecord(
 ) {
   const ownerId = input.ownerId;
   const name = String(input.name || '').trim();
-  const location = input.location ?? null;
+  const location = normalizeLocationForStorage(input.location);
+  const regionPath = location
+    ? deriveLocationRegionPath(location, { includeDistrict: true })
+    : null;
 
   if (!name) {
     throw new HttpError(400, '设备名称不能为空。');
@@ -249,6 +256,7 @@ async function createDeviceRecord(
         inventory_id,
         serial_number,
         location,
+        region_path,
         is_on,
         fire_level,
         temp,
@@ -265,6 +273,7 @@ async function createDeviceRecord(
         $4,
         $5,
         $6::jsonb,
+        $7,
         FALSE,
         60,
         25,
@@ -283,6 +292,7 @@ async function createDeviceRecord(
       input.inventoryId ?? null,
       input.serialNumber ?? null,
       JSON.stringify(location),
+      regionPath,
     ]
   );
 
@@ -500,6 +510,7 @@ export async function bindScannedDevice(input: {
         qrCode: inventory.qrCode,
         serialNumber: inventory.serialNumber,
         wifiSsid: input.wifiSsid ? String(input.wifiSsid) : null,
+        location: normalizeLocationForStorage(input.location),
       },
     });
 
@@ -574,10 +585,17 @@ export async function updateDevice(input: {
     }
 
     if (key === 'location') {
+      const normalizedLocation = normalizeLocationForStorage(body[key]);
       fields.push({
         column: fieldMap[key],
-        value: JSON.stringify(body[key] ?? null),
+        value: JSON.stringify(normalizedLocation),
         cast: '::jsonb',
+      });
+      fields.push({
+        column: 'region_path',
+        value: normalizedLocation
+          ? deriveLocationRegionPath(normalizedLocation, { includeDistrict: true })
+          : null,
       });
       continue;
     }

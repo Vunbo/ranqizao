@@ -27,25 +27,152 @@ function readCandidateString(...values) {
   return ''
 }
 
-function findGoogleOauthService() {
+const APP_OAUTH_PROVIDER_META = {
+  weixin: {
+    serviceId: 'weixin',
+    label: '微信',
+    capabilityName: '微信 App 快捷登录',
+    configHint:
+      '请在 manifest.json 的 app-plus.distribute.sdkConfigs.oauth.weixin 中填写 appid，iOS 还需填写 UniversalLinks，并重新云打包或制作自定义基座。',
+  },
+  google: {
+    serviceId: 'google',
+    label: 'Google',
+    capabilityName: 'Google App 快捷登录',
+    configHint:
+      '请在 manifest.json 的 app-plus.distribute.sdkConfigs.oauth.google 中填写 clientid，并使用启用 Google OAuth 的云打包或自定义基座。',
+  },
+}
+
+function ensureAppPlusOauthRuntime(providerKey) {
+  if (typeof plus !== 'undefined' && plus && plus.oauth && typeof plus.oauth.getServices === 'function') {
+    return
+  }
+
+  const meta = APP_OAUTH_PROVIDER_META[providerKey]
+  throw new Error(
+    `当前运行环境未注入 5+ OAuth 原生能力，无法使用${meta.capabilityName}。${meta.configHint}`
+  )
+}
+
+function normalizeNativeOauthError(providerKey, error, fallbackMessage) {
+  const meta = APP_OAUTH_PROVIDER_META[providerKey]
+  const message = String((error && error.message) || error || '').trim()
+
+  if (!message) {
+    return `${fallbackMessage}。${meta.configHint}`
+  }
+
+  if (
+    message.includes('cancel') ||
+    message.includes('用户取消') ||
+    message.includes('auth cancel')
+  ) {
+    return `已取消${meta.label}授权。`
+  }
+
+  if (
+    message.includes('install') ||
+    message.includes('not installed') ||
+    message.includes('未安装')
+  ) {
+    return `当前设备未安装${meta.label}客户端，无法使用${meta.capabilityName}。`
+  }
+
+  if (
+    message.includes('not support') ||
+    message.includes('unsupported') ||
+    message.includes('not found') ||
+    message.includes('service not found') ||
+    message.includes('no service') ||
+    message.includes('oauth')
+  ) {
+    return `${fallbackMessage}。${meta.configHint}`
+  }
+
+  return message
+}
+
+function getOauthServices() {
+  ensureAppPlusOauthRuntime('weixin')
+
   return new Promise((resolve, reject) => {
     plus.oauth.getServices(
       (services) => {
-        const googleService = services.find((service) => service.id === 'google')
-        if (!googleService) {
-          reject(
-            new Error('当前 App 未启用 Google 登录能力，请使用启用 Google OAuth 的云打包或自定义基座。')
-          )
-          return
-        }
-
-        resolve(googleService)
+        resolve(services || [])
       },
       (error) => {
-        reject(new Error(error.message || '获取 Google 登录服务失败。'))
+        reject(
+          new Error(
+            normalizeNativeOauthError(
+              'weixin',
+              error,
+              '获取 App 原生授权服务失败'
+            )
+          )
+        )
       }
     )
   })
+}
+
+async function findOauthService(providerKey) {
+  const meta = APP_OAUTH_PROVIDER_META[providerKey]
+  const services = await getOauthServices()
+  const matchedService = services.find((service) => service.id === meta.serviceId)
+
+  if (!matchedService) {
+    throw new Error(
+      `当前 App 未启用${meta.capabilityName}。${meta.configHint}`
+    )
+  }
+
+  return matchedService
+}
+
+async function authorizeWechatApp() {
+  // #ifdef APP-PLUS
+  await findOauthService('weixin')
+
+  const loginResult = await new Promise((resolve, reject) => {
+    uni.login({
+      provider: 'weixin',
+      onlyAuthorize: true,
+      success: resolve,
+      fail: (error) => {
+        reject(
+          new Error(
+            normalizeNativeOauthError(
+              'weixin',
+              error,
+              '拉起微信授权失败'
+            )
+          )
+        )
+      },
+    })
+  })
+
+  const code = readCandidateString(
+    loginResult.code,
+    loginResult.authResult && loginResult.authResult.code
+  )
+
+  if (!code) {
+    throw new Error(
+      '微信授权已返回，但未拿到有效授权 code。请确认 manifest.json 中已正确配置微信 AppID，并重新云打包后再测试。'
+    )
+  }
+
+  return {
+    code,
+    authResult: normalizePlainObject(loginResult.authResult),
+  }
+  // #endif
+
+  // #ifndef APP-PLUS
+  throw new Error('当前平台不支持 App 微信快捷登录。')
+  // #endif
 }
 
 function requestGoogleUserInfo(service) {
@@ -59,12 +186,21 @@ function requestGoogleUserInfo(service) {
 
 async function authorizeGoogleApp() {
   // #ifdef APP-PLUS
-  const service = await findGoogleOauthService()
+  const service = await findOauthService('google')
 
   await new Promise((resolve, reject) => {
     service.login(
       () => resolve(),
-      (error) => reject(new Error(error.message || 'Google 登录失败。'))
+      (error) =>
+        reject(
+          new Error(
+            normalizeNativeOauthError(
+              'google',
+              error,
+              '拉起 Google 授权失败'
+            )
+          )
+        )
     )
   })
 
@@ -94,6 +230,55 @@ async function authorizeGoogleApp() {
 
   // #ifndef APP-PLUS
   throw new Error('当前平台不支持 App Google 快捷登录。')
+  // #endif
+}
+
+export async function getAvailableAppQuickLoginProviders() {
+  // #ifdef APP-PLUS
+  try {
+    const services = await getOauthServices()
+    const serviceIds = new Set(services.map((service) => service.id))
+
+    return {
+      wechatApp: {
+        supported: serviceIds.has(APP_OAUTH_PROVIDER_META.weixin.serviceId),
+        reason: serviceIds.has(APP_OAUTH_PROVIDER_META.weixin.serviceId)
+          ? ''
+          : APP_OAUTH_PROVIDER_META.weixin.configHint,
+      },
+      googleApp: {
+        supported: serviceIds.has(APP_OAUTH_PROVIDER_META.google.serviceId),
+        reason: serviceIds.has(APP_OAUTH_PROVIDER_META.google.serviceId)
+          ? ''
+          : APP_OAUTH_PROVIDER_META.google.configHint,
+      },
+    }
+  } catch (error) {
+    const reason = String(error.message || '获取 App 原生授权服务失败。')
+    return {
+      wechatApp: {
+        supported: false,
+        reason,
+      },
+      googleApp: {
+        supported: false,
+        reason,
+      },
+    }
+  }
+  // #endif
+
+  // #ifndef APP-PLUS
+  return {
+    wechatApp: {
+      supported: false,
+      reason: '当前平台不支持 App 原生快捷登录。',
+    },
+    googleApp: {
+      supported: false,
+      reason: '当前平台不支持 App 原生快捷登录。',
+    },
+  }
   // #endif
 }
 
@@ -165,16 +350,7 @@ export async function loginWithMiniProgram() {
 }
 
 export async function loginWithWechatApp() {
-  // #ifdef APP-PLUS
-  const loginResult = await new Promise((resolve, reject) => {
-    uni.login({
-      provider: 'weixin',
-      onlyAuthorize: true,
-      success: resolve,
-      fail: reject,
-    })
-  })
-
+  const loginResult = await authorizeWechatApp()
   const user = await remoteAuthService.loginWithWechatApp({
     code: loginResult.code,
   })
@@ -182,11 +358,6 @@ export async function loginWithWechatApp() {
   return {
     user,
   }
-  // #endif
-
-  // #ifndef APP-PLUS
-  throw new Error('当前平台不支持 App 微信快捷登录。')
-  // #endif
 }
 
 export async function loginWithGoogleApp() {
@@ -243,24 +414,11 @@ export async function bindMiniProgramIdentity() {
 }
 
 export async function bindWechatAppIdentity() {
-  // #ifdef APP-PLUS
-  const loginResult = await new Promise((resolve, reject) => {
-    uni.login({
-      provider: 'weixin',
-      onlyAuthorize: true,
-      success: resolve,
-      fail: reject,
-    })
-  })
+  const loginResult = await authorizeWechatApp()
 
   return remoteAuthService.bindWechatApp({
     code: loginResult.code,
   })
-  // #endif
-
-  // #ifndef APP-PLUS
-  throw new Error('当前平台不支持 App 微信绑定。')
-  // #endif
 }
 
 export async function bindGoogleAppIdentity() {
@@ -270,6 +428,11 @@ export async function bindGoogleAppIdentity() {
 
 export async function getGoogleAppVerificationPayload() {
   return authorizeGoogleApp()
+}
+
+export async function getWechatAppVerificationCode() {
+  const loginResult = await authorizeWechatApp()
+  return loginResult.code
 }
 
 export async function changePassword(payload) {
@@ -286,6 +449,14 @@ export async function logoutCurrentSession() {
 
 export async function listDevices() {
   return remoteDeviceService.list()
+}
+
+export async function scanBindableDevice(qrCode) {
+  return remoteDeviceService.scanBindable(qrCode)
+}
+
+export async function bindScannedDevice(payload) {
+  return remoteDeviceService.bindScanned(payload)
 }
 
 export async function createDevice(payload) {

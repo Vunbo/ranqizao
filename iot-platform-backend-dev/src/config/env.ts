@@ -71,6 +71,15 @@ export const env = {
     'JWT_SECRET',
     'ai-iot-safety-stove-control-local-secret'
   ),
+  opsJwtSecret: readString(
+    'OPS_JWT_SECRET',
+    readString('JWT_SECRET', 'ai-iot-safety-stove-control-local-secret')
+  ),
+  defaultAdmin: {
+    username: readString('OPS_ADMIN_USERNAME', 'admin'),
+    password: readString('OPS_ADMIN_PASSWORD', 'admin'),
+    displayName: readString('OPS_ADMIN_DISPLAY_NAME', '超级管理员'),
+  },
   databaseName: readString('PGDATABASE', 'ai_iot_safety_stove_control'),
   adminDatabase: readString('PGADMIN_DATABASE', 'postgres'),
   db: {

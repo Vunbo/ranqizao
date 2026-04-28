@@ -1,0 +1,149 @@
+@font-face {
+  font-family: 'Inter';
+  src: local('Inter'), local('sans-serif');
+  font-weight: 100 900;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'Space Grotesk';
+  src: local('Space Grotesk'), local('sans-serif');
+  font-weight: 300 700;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'JetBrains Mono';
+  src: local('JetBrains Mono'), local('monospace');
+  font-weight: 400 800;
+  font-display: swap;
+}
+
+@import "tailwindcss";
+
+@theme {
+  --font-sans: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif, "Apple Color Emoji", "Segoe UI Emoji";
+  --font-display: "Space Grotesk", "Inter", sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, SFMono-Regular, "SF Mono", Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+  
+  --color-brand: #58a6ff;
+  --color-brand-muted: rgba(88, 166, 255, 0.1);
+  --color-warning: #d29922;
+  --color-danger: #f85149;
+  --color-success: #3fb950;
+  
+  --color-bg-main: var(--bg-main);
+  --color-bg-side: var(--bg-side);
+  --color-bg-card: var(--bg-card);
+  --color-border-subtle: var(--border-subtle);
+  --color-text-primary: var(--text-primary);
+  --color-text-secondary: var(--text-secondary);
+}
+
+@custom-variant light (&:where(.light, .light *));
+
+@layer base {
+  :root {
+    --bg-main: #0d1117;
+    --bg-side: #010409;
+    --bg-card: #161b22;
+    --border-subtle: rgba(240, 246, 252, 0.15);
+    --text-primary: #f0f6fc;
+    --text-secondary: #8b949e;
+  }
+
+  .light {
+    --bg-main: #fcfcfc;
+    --bg-side: #ffffff;
+    --bg-card: #ffffff;
+    --border-subtle: rgba(0, 0, 0, 0.06);
+    --text-primary: #111111;
+    --text-secondary: #666666;
+  }
+
+  body {
+    @apply bg-bg-main text-text-secondary font-sans antialiased selection:bg-brand selection:text-black transition-colors duration-300;
+    background-image: 
+      radial-gradient(circle at 50% 0%, rgba(88, 166, 255, 0.05) 0%, transparent 50%),
+      linear-gradient(to bottom, rgba(255, 255, 255, 0.01) 1px, transparent 1px),
+      linear-gradient(to right, rgba(255, 255, 255, 0.01) 1px, transparent 1px);
+    background-size: 100% 100%, 60px 60px, 60px 60px;
+  }
+
+  .light body {
+    background-image: 
+      radial-gradient(circle at 50% 0%, rgba(88, 166, 255, 0.04) 0%, transparent 50%),
+      linear-gradient(to bottom, rgba(0, 0, 0, 0.02) 1px, transparent 1px),
+      linear-gradient(to right, rgba(0, 0, 0, 0.02) 1px, transparent 1px);
+  }
+
+  h1, h2, h3, h4 {
+    @apply font-display tracking-tight text-text-primary;
+  }
+}
+
+/* Custom Scrollbar */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  @apply bg-transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  @apply bg-white/10 light:bg-black/5 rounded-full hover:bg-white/20 light:hover:bg-black/10 transition-colors;
+}
+
+/* Glassmorphism Utility */
+.glass {
+  @apply bg-bg-card/60 backdrop-blur-md border border-border-subtle shadow-xl;
+  will-change: transform, opacity;
+}
+
+.light .glass {
+  @apply bg-white/70 backdrop-blur-md border border-black/[0.04] shadow-[0_8px_32px_rgba(0,0,0,0.04)];
+}
+
+.glass-dark {
+  @apply bg-bg-card/80 backdrop-blur-sm border border-border-subtle shadow-2xl;
+  background-image: linear-gradient(135deg, rgba(255, 255, 255, 0.03) 0%, transparent 100%);
+  will-change: transform, border-color;
+}
+
+.light .glass-dark {
+  @apply bg-white/90 backdrop-blur-sm border border-black/[0.05] shadow-[0_12px_40px_rgba(0,0,0,0.06)];
+  background-image: linear-gradient(135deg, rgba(0, 0, 0, 0.01) 0%, transparent 100%);
+}
+
+.brand-glow {
+  box-shadow: 0 0 15px var(--color-brand-muted);
+}
+
+.brand-glow-strong {
+  box-shadow: 0 0 25px var(--color-brand);
+}
+
+/* Custom Scrollbar Utility */
+.custom-scrollbar::-webkit-scrollbar {
+  width: 4px;
+}
+
+.custom-scrollbar::-webkit-scrollbar-thumb {
+  @apply bg-brand/30 rounded-full hover:bg-brand/50;
+}
+
+/* HUD elements */
+.hud-line {
+  @apply border-t border-dashed border-white/10;
+}
+
+.hud-corner {
+  @apply absolute w-2 h-2 border-white/20;
+}
+
+.hud-corner-tl { @apply top-0 left-0 border-t border-l; }
+.hud-corner-tr { @apply top-0 right-0 border-t border-r; }
+.hud-corner-bl { @apply bottom-0 left-0 border-b border-l; }
+.hud-corner-br { @apply bottom-0 right-0 border-b border-r; }

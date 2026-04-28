@@ -5,6 +5,14 @@ import { query } from '../database/client';
 import { authRouter } from '../modules/auth/router';
 import { devicesRouter } from '../modules/devices/router';
 import { homesRouter } from '../modules/homes/router';
+import { opsAuthRouter } from '../modules/ops/auth/router';
+import { opsAlertsRouter } from '../modules/ops/alerts/router';
+import { opsCommandsRouter } from '../modules/ops/commands/router';
+import { opsConfigsRouter } from '../modules/ops/configs/router';
+import { opsDashboardRouter } from '../modules/ops/dashboard/router';
+import { opsDevicesRouter } from '../modules/ops/devices/router';
+import { opsSharesRouter } from '../modules/ops/shares/router';
+import { opsUsersRouter } from '../modules/ops/users/router';
 import { asyncHandler, errorHandler } from '../shared/http';
 
 export function createApp() {
@@ -44,6 +52,16 @@ export function createApp() {
   app.use('/api/auth', authRouter);
   app.use('/api/devices', devicesRouter);
   app.use('/api/homes', homesRouter);
+
+  app.use('/api/ops/auth', opsAuthRouter);
+  app.use('/api/ops/dashboard', opsDashboardRouter);
+  app.use('/api/ops/devices', opsDevicesRouter);
+  app.use('/api/ops/users', opsUsersRouter);
+  app.use('/api/ops/shares', opsSharesRouter);
+  app.use('/api/ops/alerts', opsAlertsRouter);
+  app.use('/api/ops/commands', opsCommandsRouter);
+  app.use('/api/ops/configs', opsConfigsRouter);
+
   app.use(errorHandler);
 
   return app;

@@ -66,7 +66,7 @@
               <input
                 v-model="email"
                 class="auth-field__input"
-                placeholder="请输入邮箱，如 123@test.com"
+                placeholder="请输入邮箱，例如 123@test.com"
                 placeholder-style="color:#94a3b8"
               />
             </view>
@@ -163,7 +163,7 @@
       </view>
 
       <view class="auth-panel__footer">
-        <text class="auth-panel__footer-text">{{ isLogin ? '还没有账户？' : '已经有账户？' }}</text>
+        <text class="auth-panel__footer-text">{{ isLogin ? '还没有账号？' : '已经有账号？' }}</text>
         <text class="auth-panel__footer-link" @tap="toggleAuthMode">
           {{ isLogin ? '立即注册' : '立即登录' }}
         </text>
@@ -177,15 +177,30 @@
       </view>
 
       <view class="auth-panel__quick-grid" v-if="isLogin">
-        <view class="auth-panel__quick-item" @tap="handleWechatAppLogin">
+        <view
+          class="auth-panel__quick-item"
+          :class="{ 'auth-panel__quick-item--disabled': !appQuickLoginSupport.wechatApp.supported }"
+          @tap="handleWechatAppLogin"
+        >
           <app-icon name="message" :size="18" color="#07C160" :filled="true" />
           <text class="auth-panel__quick-text">微信</text>
         </view>
-        <view class="auth-panel__quick-item" @tap="handleGoogleAppLogin">
+        <view
+          class="auth-panel__quick-item"
+          :class="{ 'auth-panel__quick-item--disabled': !appQuickLoginSupport.googleApp.supported }"
+          @tap="handleGoogleAppLogin"
+        >
           <view class="auth-panel__google-badge">G</view>
           <text class="auth-panel__quick-text">Google</text>
         </view>
       </view>
+
+      <text
+        class="auth-panel__quick-hint"
+        v-if="isLogin && (!appQuickLoginSupport.wechatApp.supported || !appQuickLoginSupport.googleApp.supported)"
+      >
+        {{ appQuickLoginHint }}
+      </text>
       <!-- #endif -->
     </view>
     <!-- #endif -->
@@ -193,10 +208,11 @@
 </template>
 
 <script setup>
-import { computed, onBeforeUnmount, ref } from 'vue'
+import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
 import AppIcon from '../ui/AppIcon.vue'
 import CardBox from '../ui/CardBox.vue'
 import {
+  getAvailableAppQuickLoginProviders,
   loginWithGoogleApp,
   loginWithMiniProgram,
   loginWithWechatApp,
@@ -219,6 +235,16 @@ const phoneCountdown = ref(0)
 const loading = ref(false)
 const error = ref('')
 let phoneCountdownTimer = null
+const appQuickLoginSupport = ref({
+  wechatApp: {
+    supported: true,
+    reason: '',
+  },
+  googleApp: {
+    supported: true,
+    reason: '',
+  },
+})
 
 const phoneCountdownText = computed(() => {
   if (phoneCountdown.value > 0) {
@@ -232,6 +258,24 @@ const submitText = computed(() => {
     return authMethod.value === 'phone' ? '手机号登录' : '登录'
   }
   return '注册'
+})
+
+const appQuickLoginHint = computed(() => {
+  if (!appQuickLoginSupport.value.wechatApp.supported) {
+    return appQuickLoginSupport.value.wechatApp.reason
+  }
+
+  if (!appQuickLoginSupport.value.googleApp.supported) {
+    return appQuickLoginSupport.value.googleApp.reason
+  }
+
+  return ''
+})
+
+onMounted(async () => {
+  // #ifdef APP-PLUS
+  appQuickLoginSupport.value = await getAvailableAppQuickLoginProviders()
+  // #endif
 })
 
 onBeforeUnmount(() => {
@@ -383,6 +427,14 @@ async function handleWechatAppLogin() {
     return
   }
 
+  if (!appQuickLoginSupport.value.wechatApp.supported) {
+    emit('toast', {
+      message: appQuickLoginSupport.value.wechatApp.reason || '当前环境不可用微信 App 快捷登录',
+      type: 'error',
+    })
+    return
+  }
+
   loading.value = true
 
   try {
@@ -404,6 +456,14 @@ async function handleWechatAppLogin() {
 
 async function handleGoogleAppLogin() {
   if (loading.value) {
+    return
+  }
+
+  if (!appQuickLoginSupport.value.googleApp.supported) {
+    emit('toast', {
+      message: appQuickLoginSupport.value.googleApp.reason || '当前环境不可用 Google App 快捷登录',
+      type: 'error',
+    })
     return
   }
 
@@ -658,6 +718,10 @@ async function handleGoogleAppLogin() {
   border-radius: 16px;
 }
 
+.auth-panel__quick-item--disabled {
+  opacity: 0.48;
+}
+
 .auth-panel__quick-text {
   margin-left: 8px;
   font-size: 13px;
@@ -676,6 +740,14 @@ async function handleGoogleAppLogin() {
   font-size: 12px;
   font-weight: 700;
   color: #ffffff;
+}
+
+.auth-panel__quick-hint {
+  display: block;
+  margin-top: 12px;
+  font-size: 12px;
+  line-height: 20px;
+  color: #f43f5e;
 }
 
 .auth-panel__mini-card {

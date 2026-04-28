@@ -4,4 +4,4 @@ node_modules/
 .env.*.local
 *.log
 
-!.env.example
+env.example

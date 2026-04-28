@@ -2,14 +2,15 @@
   <image
     class="app-icon"
     :class="{ 'loading-spin': animated }"
-    :src="iconSrc"
+    :src="resolvedIconSrc"
     :style="{ width: `${size}px`, height: `${size}px` }"
     mode="aspectFit"
+    @error="handleIconError"
   />
 </template>
 
 <script setup>
-import { computed } from 'vue'
+import { computed, ref, watch } from 'vue'
 
 const props = defineProps({
   name: {
@@ -38,13 +39,45 @@ const props = defineProps({
   },
 })
 
-const iconSrc = computed(() => {
+const iconSpec = computed(() => {
   const safeName = props.name || 'info'
   const colorKey = String(props.color || '#0f172a').replace('#', '').toLowerCase()
   const fillKey = props.filled ? 1 : 0
   const strokeKey = String(props.strokeWidth || 2).replace('.', '_')
-  return `/static/icons/${safeName}-${colorKey}-f${fillKey}-s${strokeKey}.svg`
+  return {
+    safeName,
+    colorKey,
+    fillKey,
+    strokeKey,
+  }
 })
+
+const resolvedIconSrc = ref('')
+
+function buildIconSrc(input) {
+  return `/static/icons/${input.safeName}-${input.colorKey}-f${input.fillKey}-s${input.strokeKey}.svg`
+}
+
+watch(
+  iconSpec,
+  (nextSpec) => {
+    resolvedIconSrc.value = buildIconSrc(nextSpec)
+  },
+  { immediate: true }
+)
+
+function handleIconError() {
+  const nextSpec = iconSpec.value
+  if (nextSpec.fillKey === 1) {
+    resolvedIconSrc.value = buildIconSrc({
+      ...nextSpec,
+      fillKey: 0,
+    })
+    return
+  }
+
+  resolvedIconSrc.value = '/static/icons/info-0f172a-f0-s2.svg'
+}
 </script>
 
 <style scoped>

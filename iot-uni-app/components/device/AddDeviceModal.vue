@@ -13,7 +13,7 @@
           </view>
           <view class="add-device-modal__primary" @tap="handleScan">
             <app-icon v-if="loading" name="loader" :size="18" color="#ffffff" animated />
-            <text class="add-device-modal__primary-text">{{ loading ? '识别中...' : '模拟扫码' }}</text>
+            <text class="add-device-modal__primary-text">{{ loading ? '识别中...' : '开启摄像头扫码' }}</text>
           </view>
           <text class="add-device-modal__cancel" @tap="$emit('close')">取消</text>
         </view>
@@ -139,6 +139,25 @@
           </view>
         </view>
       </template>
+
+      <view
+        v-if="permissionDialog.visible"
+        class="add-device-modal__permission-mask"
+        @tap.stop
+      >
+        <view class="add-device-modal__permission-dialog">
+          <text class="add-device-modal__permission-title">{{ permissionDialog.title }}</text>
+          <text class="add-device-modal__permission-desc">{{ permissionDialog.message }}</text>
+          <view class="add-device-modal__permission-actions">
+            <view class="add-device-modal__permission-ghost" @tap="closePermissionDialog">
+              <text class="add-device-modal__permission-ghost-text">取消</text>
+            </view>
+            <view class="add-device-modal__permission-primary" @tap="openPermissionSettings">
+              <text class="add-device-modal__permission-primary-text">去设置</text>
+            </view>
+          </view>
+        </view>
+      </view>
     </view>
   </view>
 </template>
@@ -146,7 +165,11 @@
 <script setup>
 import { computed, onBeforeUnmount, ref, watch } from 'vue'
 import AppIcon from '../ui/AppIcon.vue'
-import { createDevice } from '../../services/gateway'
+import {
+  bindScannedDevice,
+  createDevice,
+  scanBindableDevice,
+} from '../../services/gateway'
 
 const emit = defineEmits(['close', 'toast', 'refresh'])
 
@@ -173,6 +196,14 @@ const wifiSsid = ref('')
 const wifiPassword = ref('')
 const configProgress = ref(0)
 const configTimer = ref(null)
+const scannedQrCode = ref('')
+const scanBindingMode = ref('inventory')
+const permissionDialog = ref({
+  visible: false,
+  type: '',
+  title: '',
+  message: '',
+})
 
 const progressStyle = computed(() => {
   return `conic-gradient(#f97316 0 ${configProgress.value}%, #f1f5f9 ${configProgress.value}% 100%)`
@@ -194,33 +225,353 @@ function resetFlow() {
   wifiSsid.value = ''
   wifiPassword.value = ''
   configProgress.value = 0
+  scannedQrCode.value = ''
+  scanBindingMode.value = 'inventory'
+  permissionDialog.value = {
+    visible: false,
+    type: '',
+    title: '',
+    message: '',
+  }
 }
 
-function handleScan() {
-  if (loading.value) {
-    return
-  }
-  loading.value = true
-  setTimeout(() => {
-    loading.value = false
-    step.value = 'location'
-  }, 1500)
+function resolveLocationAddress(payload) {
+  return (
+    payload.address ||
+    payload.addr ||
+    payload.formattedAddress ||
+    payload.poiName ||
+    payload.name ||
+    ''
+  )
 }
 
-function handleGetLocation() {
-  if (loading.value) {
-    return
-  }
-  loading.value = true
-  setTimeout(() => {
-    location.value = {
-      latitude: 31.2304,
-      longitude: 121.4737,
-      address: '自动获取的位置',
+function readFirstString(...values) {
+  for (const value of values) {
+    if (typeof value === 'string') {
+      const normalized = value.trim()
+      if (normalized) {
+        return normalized
+      }
     }
+  }
+
+  return ''
+}
+
+function readCoordinate(value) {
+  if (typeof value === 'number' && Number.isFinite(value)) {
+    return value
+  }
+
+  if (typeof value === 'string' && value.trim()) {
+    const parsed = Number(value)
+    if (Number.isFinite(parsed)) {
+      return parsed
+    }
+  }
+
+  return null
+}
+
+function buildLocationPayload(payload, overrides = {}) {
+  const latitude = readCoordinate(payload.latitude)
+  const longitude = readCoordinate(payload.longitude)
+  const address = resolveLocationAddress(payload)
+
+  return {
+    latitude,
+    longitude,
+    address,
+    formattedAddress: readFirstString(payload.formattedAddress, address),
+    name: readFirstString(payload.name, payload.poiName),
+    poiName: readFirstString(payload.poiName, payload.name),
+    country: readFirstString(payload.country),
+    province: readFirstString(payload.province),
+    city: readFirstString(payload.city),
+    district: readFirstString(payload.district),
+    street: readFirstString(payload.street),
+    streetNum: readFirstString(payload.streetNum, payload.streetNumber),
+    coordType: readFirstString(payload.coordType, overrides.coordType, payload.type),
+    source: readFirstString(payload.source, overrides.source),
+    capturedAt: readFirstString(payload.capturedAt, overrides.capturedAt) || new Date().toISOString(),
+  }
+}
+
+function hasResolvedAddress(payload) {
+  return Boolean(
+    payload.address ||
+    payload.formattedAddress ||
+    payload.province ||
+    payload.city ||
+    payload.district
+  )
+}
+
+function mergeLocationPayload(basePayload, nextPayload) {
+  return {
+    ...basePayload,
+    ...nextPayload,
+    latitude: nextPayload.latitude ?? basePayload.latitude,
+    longitude: nextPayload.longitude ?? basePayload.longitude,
+    address: nextPayload.address || basePayload.address,
+    formattedAddress: nextPayload.formattedAddress || basePayload.formattedAddress,
+    name: nextPayload.name || basePayload.name,
+    poiName: nextPayload.poiName || basePayload.poiName,
+    country: nextPayload.country || basePayload.country,
+    province: nextPayload.province || basePayload.province,
+    city: nextPayload.city || basePayload.city,
+    district: nextPayload.district || basePayload.district,
+    street: nextPayload.street || basePayload.street,
+    streetNum: nextPayload.streetNum || basePayload.streetNum,
+    coordType: nextPayload.coordType || basePayload.coordType,
+    source: nextPayload.source || basePayload.source,
+    capturedAt: basePayload.capturedAt || nextPayload.capturedAt,
+  }
+}
+
+async function resolveBindingLocation(currentLocation) {
+  const normalizedLocation = buildLocationPayload(currentLocation, {
+    coordType: 'gcj02',
+    source: 'uni.getLocation',
+  })
+
+  // #ifdef MP-WEIXIN
+  if (!hasResolvedAddress(normalizedLocation) && typeof uni.chooseLocation === 'function') {
+    try {
+      const pickedLocation = await new Promise((resolve, reject) => {
+        const chooseOptions = {
+          success: resolve,
+          fail: reject,
+        }
+
+        if (normalizedLocation.latitude !== null) {
+          chooseOptions.latitude = normalizedLocation.latitude
+        }
+
+        if (normalizedLocation.longitude !== null) {
+          chooseOptions.longitude = normalizedLocation.longitude
+        }
+
+        uni.chooseLocation(chooseOptions)
+      })
+
+      return mergeLocationPayload(
+        normalizedLocation,
+        buildLocationPayload(pickedLocation, {
+          coordType: normalizedLocation.coordType || 'gcj02',
+          source: 'uni.chooseLocation',
+          capturedAt: normalizedLocation.capturedAt,
+        })
+      )
+    } catch (error) {
+      const errorMessage = String(error.message || '')
+      const canIgnoreError =
+        isUserCanceled(errorMessage) ||
+        errorMessage.includes('not support') ||
+        errorMessage.includes('not supported')
+
+      if (!canIgnoreError) {
+        throw error
+      }
+    }
+  }
+  // #endif
+
+  return normalizedLocation
+}
+
+function isUserCanceled(errorMessage) {
+  return (
+    errorMessage.includes('cancel') ||
+    errorMessage.includes('fail cancel') ||
+    errorMessage.includes('用户取消')
+  )
+}
+
+function isPermissionDenied(errorMessage) {
+  return (
+    errorMessage.includes('auth deny') ||
+    errorMessage.includes('authorize no response') ||
+    errorMessage.includes('permission') ||
+    errorMessage.includes('denied') ||
+    errorMessage.includes('unauthorized') ||
+    errorMessage.includes('权限') ||
+    errorMessage.includes('未授权')
+  )
+}
+
+function canFallbackToMockScan(errorMessage) {
+  return (
+    errorMessage.includes('未识别到可绑定设备') ||
+    errorMessage.includes('扫码内容不能为空') ||
+    errorMessage.includes('设备库存状态异常')
+  )
+}
+
+function showPermissionDialog(type) {
+  permissionDialog.value = {
+    visible: true,
+    type,
+    title: type === 'camera' ? '需要开启摄像头权限' : '需要开启定位权限',
+    message:
+      type === 'camera'
+        ? '绑定设备第一步需要调用摄像头扫码，请在系统设置中允许本应用使用摄像头。'
+        : '绑定设备第二步需要获取当前位置，请在系统设置中允许本应用使用定位权限。',
+  }
+}
+
+function closePermissionDialog() {
+  permissionDialog.value = {
+    visible: false,
+    type: '',
+    title: '',
+    message: '',
+  }
+}
+
+async function openPermissionSettings() {
+  try {
+    // #ifdef APP-PLUS
+    await new Promise((resolve, reject) => {
+      if (typeof uni.openAppAuthorizeSetting !== 'function') {
+        reject(new Error('当前环境不支持直接打开权限设置页'))
+        return
+      }
+
+      uni.openAppAuthorizeSetting({
+        success: resolve,
+        fail: reject,
+      })
+    })
+    // #endif
+
+    // #ifdef MP-WEIXIN
+    await new Promise((resolve, reject) => {
+      uni.openSetting({
+        success: resolve,
+        fail: reject,
+      })
+    })
+    // #endif
+
+    emit('toast', {
+      message: '已打开系统权限设置，请完成授权后重试',
+      type: 'info',
+    })
+  } catch (error) {
+    emit('toast', {
+      message: error.message || '打开系统权限设置失败',
+      type: 'error',
+    })
+  } finally {
+    closePermissionDialog()
+  }
+}
+
+async function handleScan() {
+  if (loading.value) {
+    return
+  }
+
+  loading.value = true
+
+  try {
+    const scanResult = await new Promise((resolve, reject) => {
+      uni.scanCode({
+        onlyFromCamera: true,
+        scanType: ['qrCode'],
+        success: resolve,
+        fail: reject,
+      })
+    })
+    const qrCode = String(scanResult.result || '').trim()
+
+    if (!qrCode) {
+      throw new Error('未识别到有效二维码内容')
+    }
+
+    try {
+      const scanStatus = await scanBindableDevice(qrCode)
+      if (scanStatus.bindStatus === 'already_bound_to_current_user') {
+        throw new Error('该设备已绑定到当前账号')
+      }
+      if (scanStatus.bindStatus === 'already_bound') {
+        throw new Error('该设备已被其他账号绑定')
+      }
+      scanBindingMode.value = 'inventory'
+    } catch (scanValidationError) {
+      const scanValidationMessage = String(scanValidationError.message || '')
+      if (!canFallbackToMockScan(scanValidationMessage)) {
+        throw scanValidationError
+      }
+
+      scanBindingMode.value = 'mock'
+      emit('toast', {
+        message: '当前二维码未录入设备库，按模拟扫码流程继续',
+        type: 'info',
+      })
+    }
+
+    scannedQrCode.value = qrCode
+    step.value = 'location'
+  } catch (error) {
+    const errorMessage = String(error.message || '')
+    if (isUserCanceled(errorMessage)) {
+      emit('toast', {
+        message: '已取消扫码',
+        type: 'info',
+      })
+      return
+    }
+
+    if (isPermissionDenied(errorMessage)) {
+      showPermissionDialog('camera')
+      return
+    }
+
+    emit('toast', {
+      message: error.message || '扫码识别失败',
+      type: 'error',
+    })
+  } finally {
     loading.value = false
+  }
+}
+
+async function handleGetLocation() {
+  if (loading.value) {
+    return
+  }
+
+  loading.value = true
+
+  try {
+    const currentLocation = await new Promise((resolve, reject) => {
+      uni.getLocation({
+        type: 'gcj02',
+        geocode: true,
+        success: resolve,
+        fail: reject,
+      })
+    })
+
+    location.value = await resolveBindingLocation(currentLocation)
     step.value = 'wifi'
-  }, 1500)
+  } catch (error) {
+    const errorMessage = String(error.message || '')
+    if (isPermissionDenied(errorMessage)) {
+      showPermissionDialog('location')
+      return
+    }
+
+    emit('toast', {
+      message: error.message || '定位获取失败，请检查定位权限',
+      type: 'error',
+    })
+  } finally {
+    loading.value = false
+  }
 }
 
 function handleStartConfig() {
@@ -274,10 +625,23 @@ async function handleBind() {
 
   loading.value = true
   try {
-    await createDevice({
-      name: normalizedName,
-      location: location.value,
-    })
+    if (!scannedQrCode.value) {
+      throw new Error('缺少扫码识别结果，请重新扫码')
+    }
+
+    if (scanBindingMode.value === 'mock') {
+      await createDevice({
+        name: normalizedName,
+        location: location.value,
+      })
+    } else {
+      await bindScannedDevice({
+        qrCode: scannedQrCode.value,
+        name: normalizedName,
+        location: location.value,
+        wifiSsid: wifiSsid.value,
+      })
+    }
     emit('refresh')
     step.value = 'success'
   } catch (error) {
@@ -533,5 +897,79 @@ onBeforeUnmount(() => {
 
 .add-device-modal__wave-bar--delay-2 {
   animation-delay: 0.28s;
+}
+
+.add-device-modal__permission-mask {
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  background: rgba(15, 23, 42, 0.28);
+  border-radius: 32px;
+}
+
+.add-device-modal__permission-dialog {
+  width: 100%;
+  max-width: 320px;
+  padding: 24px;
+  background: #ffffff;
+  border-radius: 24px;
+  box-shadow: 0 24px 48px rgba(15, 23, 42, 0.16);
+}
+
+.add-device-modal__permission-title {
+  display: block;
+  font-size: 18px;
+  font-weight: 700;
+  text-align: center;
+  color: #0f172a;
+}
+
+.add-device-modal__permission-desc {
+  display: block;
+  margin-top: 10px;
+  font-size: 13px;
+  line-height: 22px;
+  text-align: center;
+  color: #64748b;
+}
+
+.add-device-modal__permission-actions {
+  display: flex;
+  margin-top: 20px;
+  gap: 10px;
+}
+
+.add-device-modal__permission-ghost,
+.add-device-modal__permission-primary {
+  display: flex;
+  flex: 1;
+  align-items: center;
+  justify-content: center;
+  min-height: 46px;
+  border-radius: 16px;
+}
+
+.add-device-modal__permission-ghost {
+  background: #f1f5f9;
+}
+
+.add-device-modal__permission-primary {
+  background: #f97316;
+}
+
+.add-device-modal__permission-ghost-text {
+  font-size: 14px;
+  font-weight: 700;
+  color: #475569;
+}
+
+.add-device-modal__permission-primary-text {
+  font-size: 14px;
+  font-weight: 700;
+  color: #ffffff;
 }
 </style>

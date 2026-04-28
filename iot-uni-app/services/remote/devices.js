@@ -6,6 +6,21 @@ export const remoteDeviceService = {
     return response.devices || []
   },
 
+  async scanBindable(qrCode) {
+    return request('/devices/bind/scan', {
+      method: 'POST',
+      body: { qrCode },
+    })
+  },
+
+  async bindScanned(payload) {
+    const response = await request('/devices/bind', {
+      method: 'POST',
+      body: payload,
+    })
+    return response.device
+  },
+
   async create(payload) {
     const response = await request('/devices', {
       method: 'POST',

@@ -226,6 +226,7 @@ import {
   bindMiniProgramIdentity,
   bindPhoneIdentity,
   getGoogleAppVerificationPayload,
+  getWechatAppVerificationCode,
   listAuthIdentities,
   sendPhoneBindCode,
   sendPhoneUnbindCode,
@@ -702,15 +703,7 @@ async function getWechatVerificationCode(type) {
 
   if (type === 'wechat_app') {
     // #ifdef APP-PLUS
-    const loginResult = await new Promise((resolve, reject) => {
-      uni.login({
-        provider: 'weixin',
-        onlyAuthorize: true,
-        success: resolve,
-        fail: reject,
-      })
-    })
-    return loginResult.code
+    return getWechatAppVerificationCode()
     // #endif
   }
 
