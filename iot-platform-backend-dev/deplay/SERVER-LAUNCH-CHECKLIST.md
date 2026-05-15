@@ -1,178 +1,178 @@
-# Server Launch Checklist
+# 服务器上线检查清单
 
-Use this checklist before and during production launch.
+本清单用于生产环境上线前和首次上线过程中逐项确认。
 
-## 1. Server Basics
+## 1. 服务器基础检查
 
-- [ ] Server time zone and time sync are correct.
-- [ ] Docker and Docker Compose are installed and usable.
-- [ ] Required directories exist and match the documented layout:
-  - [ ] `deplay/`
+- [ ] 服务器时区和时间同步正确。
+- [ ] Docker 和 Docker Compose 已安装且可用。
+- [ ] 必要目录已经存在，并符合当前部署结构：
   - [ ] `iot-platform-backend-dev/`
+  - [ ] `iot-platform-backend-dev/deplay/`
   - [ ] `iot-ops-web-dev/`
-- [ ] Domain or public IP is ready.
-- [ ] TLS certificate plan is ready if you will use HTTPS.
+- [ ] 域名或公网 IP 已准备好。
+- [ ] 如果使用 HTTPS，TLS 证书方案已准备好。
 
-## 2. Choose Backend Deployment Mode
+## 2. 选择后端部署模式
 
-- [ ] Decide one mode only:
+- [ ] 只选择一种部署模式：
   - [ ] `deplay/docker-compose.external-db.yml`
   - [ ] `deplay/docker-compose.with-postgres.yml`
-- [ ] If using external PostgreSQL:
-  - [ ] `deplay/backend.env.external-db` is filled with real values.
-  - [ ] `PGDATABASE` already exists, or `PGUSER` can create databases.
-- [ ] If using bundled PostgreSQL:
-  - [ ] `deplay/backend.env.docker-postgres` is filled with real values.
-  - [ ] `POSTGRES_PASSWORD` and `PGPASSWORD` were both replaced.
+- [ ] 如果使用外部 PostgreSQL：
+  - [ ] `deplay/backend.env.external-db` 已填写真实配置。
+  - [ ] `PGDATABASE` 已存在，或 `PGUSER` 有创建数据库的权限。
+- [ ] 如果使用 Docker 内置 PostgreSQL：
+  - [ ] `deplay/backend.env.docker-postgres` 已填写真实配置。
+  - [ ] `POSTGRES_PASSWORD` 和 `PGPASSWORD` 都已经替换，并且两者一致。
 
-## 3. Backend Required Env Values
+## 3. 后端必填环境变量
 
-- [ ] `JWT_SECRET` replaced with a strong random value.
-- [ ] `OPS_JWT_SECRET` replaced with a different strong random value.
-- [ ] `OPS_ADMIN_USERNAME` set to the production admin username.
-- [ ] `OPS_ADMIN_PASSWORD` set to a strong production password.
-- [ ] `CORS_ORIGINS` set to exact frontend origins, not `*`.
-- [ ] `API_HOST=0.0.0.0`
-- [ ] `API_PORT=3001`
+- [ ] `JWT_SECRET` 已替换为高强度随机值。
+- [ ] `OPS_JWT_SECRET` 已替换为另一个不同的高强度随机值。
+- [ ] `OPS_ADMIN_USERNAME` 已设置为生产管理员用户名。
+- [ ] `OPS_ADMIN_PASSWORD` 已设置为高强度生产密码。
+- [ ] `CORS_ORIGINS` 已设置为准确的前端来源，不是 `*`。
+- [ ] `API_HOST=0.0.0.0`。
+- [ ] `API_PORT=3001`。
 
-## 4. Third-Party Login Settings
+## 4. 第三方登录配置
 
-- [ ] If using WeChat Mini Program login:
-  - [ ] `WECHAT_MINI_APP_ID` set
-  - [ ] `WECHAT_MINI_APP_SECRET` set
-- [ ] If using WeChat App login:
-  - [ ] `WECHAT_APP_ID` set
-  - [ ] `WECHAT_APP_SECRET` set
-- [ ] If using Google App login:
-  - [ ] `GOOGLE_APP_WEB_CLIENT_ID` set
-- [ ] Server outbound network allows HTTPS access to:
-  - [ ] `api.weixin.qq.com`
-  - [ ] `openidconnect.googleapis.com`
+- [ ] 如果启用微信小程序登录：
+  - [ ] `WECHAT_MINI_APP_ID` 已设置。
+  - [ ] `WECHAT_MINI_APP_SECRET` 已设置。
+- [ ] 如果启用微信 App 登录：
+  - [ ] `WECHAT_APP_ID` 已设置。
+  - [ ] `WECHAT_APP_SECRET` 已设置。
+- [ ] 如果启用 Google App 登录：
+  - [ ] `GOOGLE_APP_WEB_CLIENT_ID` 已设置。
+- [ ] 服务器出站网络允许 HTTPS 访问：
+  - [ ] `api.weixin.qq.com`。
+  - [ ] `openidconnect.googleapis.com`。
 
-## 5. Ops Web Deployment
+## 5. 运营后台部署
 
-- [ ] `iot-ops-web-dev/.env` or build env sets:
-  - [ ] `VITE_API_BASE_URL=https://your-api-domain/api`
-- [ ] `npm install` completed in `iot-ops-web-dev/`
-- [ ] `npm run build` completed in `iot-ops-web-dev/`
-- [ ] Static output `iot-ops-web-dev/dist/` is deployed to the web server.
-- [ ] Because ops web uses `BrowserRouter`, the web server has SPA route fallback:
-  - [ ] unknown routes return `index.html`
+- [ ] `iot-ops-web-dev/.env` 或构建环境变量已设置：
+  - [ ] `VITE_API_BASE_URL=https://your-api-domain/api`。
+- [ ] 已在 `iot-ops-web-dev/` 中执行 `npm install`。
+- [ ] 已在 `iot-ops-web-dev/` 中执行 `npm run build`。
+- [ ] 静态产物 `iot-ops-web-dev/dist/` 已部署到 Web 服务器。
+- [ ] 由于运营后台使用 `BrowserRouter`，Web 服务器已配置 SPA 路由回退：
+  - [ ] 未命中的路由返回 `index.html`。
 
-## 6. uni-app / Mini Program Runtime Settings
+## 6. uni-app / 小程序运行配置
 
-- [ ] `iot-uni-app/.env` sets both:
-  - [ ] `VUE_APP_API_BASE_URL=https://your-api-domain/api`
-  - [ ] `VITE_API_BASE_URL=https://your-api-domain/api`
-- [ ] Real device or mini program config does not use `localhost`.
-- [ ] If using Mini Program:
-  - [ ] backend domain added to allowed request domains
-  - [ ] production domain uses HTTPS if required by the platform
-- [ ] If using App login flows:
-  - [ ] WeChat App callback / app config is aligned with your release package
-  - [ ] Google login config is aligned with your release package
+- [ ] `iot-uni-app/.env` 同时设置：
+  - [ ] `VUE_APP_API_BASE_URL=https://your-api-domain/api`。
+  - [ ] `VITE_API_BASE_URL=https://your-api-domain/api`。
+- [ ] 真机或小程序配置中没有使用 `localhost`。
+- [ ] 如果使用小程序：
+  - [ ] 后端域名已加入 request 合法域名。
+  - [ ] 生产域名按平台要求使用 HTTPS。
+- [ ] 如果使用 App 登录流程：
+  - [ ] 微信 App 回调或应用配置与发布包一致。
+  - [ ] Google 登录配置与发布包一致。
 
-## 7. Network and Security
+## 7. 网络和安全
 
-- [ ] Prefer exposing only `80/443` through Nginx or Caddy.
-- [ ] If temporarily exposing backend directly, open only `3001/tcp`.
-- [ ] OS firewall rules checked.
-- [ ] Cloud security group rules checked.
-- [ ] PostgreSQL `5432` is not publicly exposed unless there is a real need.
-- [ ] Reverse proxy forwards `/api` to backend `127.0.0.1:3001`.
+- [ ] 优先只通过 Nginx 或 Caddy 暴露 `80/443`。
+- [ ] 如果临时直连后端，只开放 `3001/tcp`。
+- [ ] 已检查系统防火墙规则。
+- [ ] 已检查云安全组规则。
+- [ ] PostgreSQL `5432` 没有对公网暴露，除非确实有必要。
+- [ ] 反向代理已将 `/api` 转发到后端 `127.0.0.1:3001`。
 
-## 8. Preflight Validation
+## 8. 启动前校验
 
-- [ ] Run compose validation before startup:
+- [ ] 在项目根目录执行 compose 配置校验：
 
 ```bash
 docker compose -f deplay/docker-compose.external-db.yml config
 docker compose -f deplay/docker-compose.with-postgres.yml config
 ```
 
-- [ ] Confirm the mode you are not using will not be started by mistake.
-- [ ] Confirm backend env file contains no placeholder values.
+- [ ] 确认不会误启动未选择的部署模式。
+- [ ] 确认后端环境变量文件中没有保留占位值。
 
-## 9. First Startup
+## 9. 首次启动
 
-- [ ] Start chosen backend stack:
+- [ ] 在项目根目录启动选定的后端部署栈：
 
 ```bash
 docker compose -f deplay/docker-compose.external-db.yml up -d --build
 ```
 
-or:
+或：
 
 ```bash
 docker compose -f deplay/docker-compose.with-postgres.yml up -d --build
 ```
 
-- [ ] Check container state:
+- [ ] 检查容器状态：
 
 ```bash
 docker compose -f deplay/docker-compose.with-postgres.yml ps
 ```
 
-- [ ] Check backend logs:
+- [ ] 检查后端日志：
 
 ```bash
 docker compose -f deplay/docker-compose.with-postgres.yml logs -f iot-backend
 ```
 
-- [ ] Health endpoint returns success:
+- [ ] 健康接口返回成功：
 
 ```bash
 curl http://127.0.0.1:3001/api/health
 ```
 
-## 10. Immediate Post-Startup Security Actions
+## 10. 启动后的安全动作
 
-- [ ] Log in to ops backend with the configured production ops admin account.
-- [ ] Confirm fallback `admin / admin` is not being used.
-- [ ] Confirm seeded normal user `123@test.com` has been disabled, deleted, or had its password reset.
-- [ ] Record production credentials in a safe password vault.
+- [ ] 使用配置好的生产运营管理员账号登录运营后台。
+- [ ] 确认没有使用回退账号 `admin / admin`。
+- [ ] 确认默认普通用户 `123@test.com` 已禁用、删除或重置密码。
+- [ ] 将生产凭据记录到安全的密码管理工具中。
 
-## 11. Functional Smoke Tests
+## 11. 功能冒烟测试
 
-- [ ] Ops web login works.
-- [ ] Ops dashboard loads summary data.
-- [ ] Ops device list loads.
-- [ ] Ops device detail page opens.
-- [ ] Ops alerts page loads.
-- [ ] Ops commands page loads.
-- [ ] User side app can log in with the intended auth method.
-- [ ] Mini program can log in if enabled.
-- [ ] A device can be added and bound successfully.
-- [ ] Device location is stored after binding.
-- [ ] Ops dashboard or device view shows the correct device location / distribution.
+- [ ] 运营后台登录正常。
+- [ ] 运营首页汇总数据加载正常。
+- [ ] 设备列表加载正常。
+- [ ] 设备详情页可以打开。
+- [ ] 告警页面加载正常。
+- [ ] 指令页面加载正常。
+- [ ] 用户端 App 可以使用预期登录方式登录。
+- [ ] 如果启用小程序，小程序可以登录。
+- [ ] 可以新增并绑定设备。
+- [ ] 绑定设备后位置信息已保存。
+- [ ] 运营首页或设备视图能展示正确的设备位置或分布。
 
-## 12. Location-Specific Verification
+## 12. 位置数据专项验证
 
-- [ ] Bind one new device from app or mini program.
-- [ ] Confirm the backend receives `location` data.
-- [ ] Confirm database `devices.location` contains:
-  - [ ] `latitude`
-  - [ ] `longitude`
-  - [ ] `province`
-  - [ ] `city`
-  - [ ] `district` or usable address
-- [ ] Confirm ops web can see device distribution using the stored location.
-- [ ] If old devices have incomplete location data, plan a one-time backfill.
+- [ ] 从 App 或小程序绑定一台新设备。
+- [ ] 确认后端收到 `location` 数据。
+- [ ] 确认数据库 `devices.location` 包含：
+  - [ ] `latitude`。
+  - [ ] `longitude`。
+  - [ ] `province`。
+  - [ ] `city`。
+  - [ ] `district` 或可用地址。
+- [ ] 确认运营后台能基于已保存位置展示设备分布。
+- [ ] 如果旧设备位置数据不完整，制定一次性补全计划。
 
-## 13. Data and Backup
+## 13. 数据和备份
 
-- [ ] Database backup strategy is defined.
-- [ ] Volume backup strategy is defined if using bundled PostgreSQL.
-- [ ] Ops web build artifact backup or reproducible build path is confirmed.
-- [ ] Rollback plan is written down.
+- [ ] 数据库备份策略已确定。
+- [ ] 如果使用 Docker 内置 PostgreSQL，数据卷备份策略已确定。
+- [ ] 运营后台构建产物备份方式，或可重复构建路径已确认。
+- [ ] 回滚方案已经写明。
 
-## 14. Go-Live Gate
+## 14. 上线放行条件
 
-- [ ] No placeholder secrets remain.
-- [ ] No public weak default credentials remain.
-- [ ] Health checks are green.
-- [ ] Core login flow is green.
-- [ ] Device binding flow is green.
-- [ ] Device location flow is green.
-- [ ] Ops web is reachable from the public domain.
-- [ ] Monitoring or at least log tail access is available after release.
+- [ ] 没有遗留占位密钥。
+- [ ] 没有公开可用的弱默认账号。
+- [ ] 健康检查全部通过。
+- [ ] 核心登录流程通过。
+- [ ] 设备绑定流程通过。
+- [ ] 设备位置流程通过。
+- [ ] 运营后台可通过公网域名访问。
+- [ ] 上线后可以查看监控，或至少可以持续查看日志。

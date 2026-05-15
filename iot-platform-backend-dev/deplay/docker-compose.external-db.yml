@@ -1,8 +1,8 @@
 services:
   iot-backend:
     build:
-      context: ../iot-platform-backend-dev
-      dockerfile: ../deplay/Dockerfile
+      context: ..
+      dockerfile: deplay/Dockerfile
     container_name: iot-backend
     restart: unless-stopped
     ports:

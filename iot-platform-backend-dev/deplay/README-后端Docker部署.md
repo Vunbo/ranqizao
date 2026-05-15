@@ -1,64 +1,85 @@
-# iot-platform-backend Docker Deployment
+# iot-platform-backend Docker 部署说明
 
-This document assumes the following directory layout on the server:
+本文档适用于 `deplay` 已经迁移到 `iot-platform-backend-dev` 项目内部后的目录结构。
+
+推荐在服务器上保持以下结构：
 
 ```text
 /srv/ranqizao/
-|-- deplay/
-|   |-- Dockerfile
-|   |-- docker-compose.external-db.yml
-|   |-- docker-compose.with-postgres.yml
-|   |-- backend.env.external-db
-|   `-- backend.env.docker-postgres
 `-- iot-platform-backend-dev/
+    |-- deplay/
+    |   |-- Dockerfile
+    |   |-- Dockerfile.dockerignore
+    |   |-- docker-compose.external-db.yml
+    |   |-- docker-compose.with-postgres.yml
+    |   |-- backend.env.external-db
+    |   `-- backend.env.docker-postgres
+    |-- package.json
+    |-- package-lock.json
+    |-- src/
+    `-- tsconfig.json
 ```
 
-If your server layout is different, update these fields in the compose files:
+请在 `iot-platform-backend-dev` 项目根目录执行本文档中的 `docker compose` 命令。
+
+如果服务器目录不同，需要同步检查 compose 文件中的这些字段：
 
 - `build.context`
 - `build.dockerfile`
 - `env_file`
 
-## Files
+当前 compose 配置为：
+
+```yaml
+build:
+  context: ..
+  dockerfile: deplay/Dockerfile
+```
+
+这是因为 compose 文件位于 `iot-platform-backend-dev/deplay/`，后端构建上下文需要指向项目根目录 `iot-platform-backend-dev/`。
+
+## 文件说明
 
 - `Dockerfile`
-  Backend image build file.
+  后端镜像构建文件。
+- `Dockerfile.dockerignore`
+  Dockerfile 专用忽略文件，避免把 `node_modules`、本地日志、部署密钥文件等内容发送到 Docker 构建上下文。
 - `docker-compose.external-db.yml`
-  Use this when PostgreSQL already exists outside Docker.
+  已有外部 PostgreSQL 时使用。
 - `docker-compose.with-postgres.yml`
-  Use this when backend and PostgreSQL run together in Docker.
+  后端和 PostgreSQL 都通过 Docker 启动时使用。
 - `backend.env.external-db`
-  Env file for the external PostgreSQL mode.
+  外部 PostgreSQL 模式使用的环境变量文件。
 - `backend.env.docker-postgres`
-  Env file for the bundled PostgreSQL mode.
+  Docker 内置 PostgreSQL 模式使用的环境变量文件。
 - `.dockerignore`
-  This only takes effect if these files are copied into the backend project root and the build context changes to that root.
+  旧布局下的构建忽略文件。当前 Dockerfile 位于 `deplay/` 内，Docker 会优先使用 `Dockerfile.dockerignore`。
 
-## Important Startup Behavior
+## 重要启动行为
 
-Current backend bootstrap logic will automatically:
+当前后端启动逻辑会自动执行以下操作：
 
-- create the business database if it does not exist
-- create tables and indexes
-- create a default normal user: `123@test.com / admin@123`
-- create a default ops admin user; if ops env vars are missing, it falls back to `admin / admin`
+- 如果业务数据库不存在，会尝试创建数据库。
+- 创建表和索引。
+- 创建默认普通用户：`123@test.com / admin@123`。
+- 创建默认运营后台管理员。如果运营后台环境变量缺失，会回退到 `admin / admin`。
 
-Before production deployment, you should at minimum:
+生产部署前至少需要完成以下事项：
 
-- change `JWT_SECRET`
-- change `OPS_JWT_SECRET`
-- change `OPS_ADMIN_USERNAME`
-- change `OPS_ADMIN_PASSWORD`
-- avoid `CORS_ORIGINS=*`
-- disable, delete, or reset the seeded normal user `123@test.com` after first startup
+- 修改 `JWT_SECRET`。
+- 修改 `OPS_JWT_SECRET`。
+- 修改 `OPS_ADMIN_USERNAME`。
+- 修改 `OPS_ADMIN_PASSWORD`。
+- 不要使用 `CORS_ORIGINS=*`。
+- 首次启动后禁用、删除或重置默认普通用户 `123@test.com`。
 
-## Option 1: Use External PostgreSQL
+## 方案一：使用外部 PostgreSQL
 
-Recommended if you already have PostgreSQL on the server or use a managed database.
+如果服务器上已有 PostgreSQL，或使用云数据库、托管数据库，推荐使用该方案。
 
-### 1. Edit env file
+### 1. 修改环境变量文件
 
-Update `backend.env.external-db`, especially:
+编辑 `deplay/backend.env.external-db`，重点修改：
 
 ```env
 CORS_ORIGINS=https://ops.example.com,https://app.example.com
@@ -71,30 +92,32 @@ PGUSER=replace-with-your-postgres-user
 PGPASSWORD=replace-with-your-postgres-password
 ```
 
-### 2. Confirm database privileges
+### 2. 确认数据库权限
 
-On startup, the backend connects to `PGADMIN_DATABASE` first and checks whether `PGDATABASE` exists.
+后端启动时会先连接 `PGADMIN_DATABASE`，再检查 `PGDATABASE` 是否存在。
 
-That means one of these must be true:
+因此需要满足以下任一条件：
 
-- `PGUSER` has permission to create databases
-- `PGDATABASE` has already been created manually
+- `PGUSER` 有创建数据库的权限。
+- 已经手动创建好 `PGDATABASE`。
 
-If your managed PostgreSQL account does not have `CREATE DATABASE`, create the database manually first.
+如果托管 PostgreSQL 账号没有 `CREATE DATABASE` 权限，请先手动创建业务数据库。
 
-### 3. Start
+### 3. 启动
+
+在 `iot-platform-backend-dev` 项目根目录执行：
 
 ```bash
-docker compose -f docker-compose.external-db.yml up -d --build
+docker compose -f deplay/docker-compose.external-db.yml up -d --build
 ```
 
-## Option 2: Run Backend and PostgreSQL Together
+## 方案二：后端和 PostgreSQL 一起运行
 
-Recommended for a single server when PostgreSQL does not need to be exposed publicly.
+如果是单台服务器部署，且 PostgreSQL 不需要对公网暴露，推荐使用该方案。
 
-### 1. Edit env file
+### 1. 修改环境变量文件
 
-Update `backend.env.docker-postgres`, especially:
+编辑 `deplay/backend.env.docker-postgres`，重点修改：
 
 ```env
 CORS_ORIGINS=https://ops.example.com,https://app.example.com
@@ -106,104 +129,108 @@ POSTGRES_PASSWORD=replace-with-a-strong-postgres-password
 PGPASSWORD=replace-with-a-strong-postgres-password
 ```
 
-### 2. Start
+注意：`POSTGRES_PASSWORD` 和 `PGPASSWORD` 必须保持一致。
+
+### 2. 启动
+
+在 `iot-platform-backend-dev` 项目根目录执行：
 
 ```bash
-docker compose -f docker-compose.with-postgres.yml up -d --build
+docker compose -f deplay/docker-compose.with-postgres.yml up -d --build
 ```
 
-Notes:
+补充说明：
 
-- PostgreSQL port `5432` is no longer exposed to the host by default.
-- If you really need direct host access, temporarily add `ports: - "5432:5432"` to the `postgres` service.
-- PostgreSQL now has a healthcheck, and the backend waits for it to become healthy before starting.
+- PostgreSQL 默认不再向宿主机暴露 `5432` 端口。
+- 如果确实需要宿主机直连 PostgreSQL，可以临时给 `postgres` 服务添加 `ports: - "5432:5432"`。
+- PostgreSQL 已配置健康检查，后端会等待 PostgreSQL 健康后再启动。
 
-## Health Checks
+## 健康检查
 
-Show container status:
+查看容器状态：
 
 ```bash
-docker compose -f docker-compose.with-postgres.yml ps
+docker compose -f deplay/docker-compose.with-postgres.yml ps
 ```
 
-or:
+或：
 
 ```bash
-docker compose -f docker-compose.external-db.yml ps
+docker compose -f deplay/docker-compose.external-db.yml ps
 ```
 
-Show backend logs:
+查看后端日志：
 
 ```bash
-docker compose -f docker-compose.with-postgres.yml logs -f iot-backend
+docker compose -f deplay/docker-compose.with-postgres.yml logs -f iot-backend
 ```
 
-Show database logs:
+查看数据库日志：
 
 ```bash
-docker compose -f docker-compose.with-postgres.yml logs -f postgres
+docker compose -f deplay/docker-compose.with-postgres.yml logs -f postgres
 ```
 
-Check the API health endpoint:
+检查 API 健康接口：
 
 ```bash
 curl http://127.0.0.1:3001/api/health
 ```
 
-## Frontend API Configuration
+## 前端 API 配置
 
-### Ops web: `iot-ops-web-dev`
+### 运营后台：`iot-ops-web-dev`
 
 ```env
 VITE_API_BASE_URL=https://api.example.com/api
 ```
 
-### uni-app / mini program: `iot-uni-app`
+### uni-app / 小程序：`iot-uni-app`
 
-Set both variables:
+需要同时设置：
 
 ```env
 VUE_APP_API_BASE_URL=https://api.example.com/api
 VITE_API_BASE_URL=https://api.example.com/api
 ```
 
-Notes:
+注意：
 
-- Do not use `localhost` for real devices or mini programs.
-- Use a public domain, a public IP, or a reachable LAN IP.
-- For WeChat mini program production access, add the backend domain to the allowed request domain list.
+- 真机和小程序环境不要使用 `localhost`。
+- 应使用公网域名、公网 IP，或真机可访问的局域网 IP。
+- 微信小程序生产环境访问后端时，需要把后端域名加入微信公众平台的 request 合法域名。
 
-## Ports and Reverse Proxy
+## 端口和反向代理
 
-The simplest setup is to expose `3001/tcp`, but a better production setup is:
+最简单的方式是直接开放 `3001/tcp`，但生产环境更推荐：
 
-- expose only `80/443`
-- use Nginx or Caddy to reverse proxy to `127.0.0.1:3001`
-- let all frontends call the backend through one HTTPS domain
+- 只开放 `80/443`。
+- 使用 Nginx 或 Caddy 反向代理到 `127.0.0.1:3001`。
+- 所有前端统一通过一个 HTTPS API 域名访问后端。
 
-If you do not use a reverse proxy yet, at least:
+如果暂时不使用反向代理，至少需要：
 
-- open security group port `3001/tcp`
-- open OS firewall port `3001/tcp`
+- 在云安全组开放 `3001/tcp`。
+- 在系统防火墙开放 `3001/tcp`。
 
-## If You Copy These Files Into The Backend Project Root
+## 如果将 compose 文件复制到项目根目录
 
-You can simplify the compose paths to:
+如果后续把 compose 文件从 `deplay/` 复制到 `iot-platform-backend-dev` 项目根目录，可以把构建路径简化为：
 
 ```yaml
 build:
   context: .
-  dockerfile: Dockerfile
+  dockerfile: deplay/Dockerfile
 env_file:
-  - ./backend.env.external-db
+  - ./deplay/backend.env.external-db
 ```
 
-or:
+或：
 
 ```yaml
 build:
   context: .
-  dockerfile: Dockerfile
+  dockerfile: deplay/Dockerfile
 env_file:
-  - ./backend.env.docker-postgres
+  - ./deplay/backend.env.docker-postgres
 ```

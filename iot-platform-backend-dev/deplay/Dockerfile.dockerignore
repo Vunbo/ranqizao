@@ -1,0 +1,10 @@
+node_modules
+npm-debug.log
+backend-start.log
+backend-start-3011.log
+.env
+.env.*
+!.env.example
+.git
+deplay/backend.env.*
+deplay/*.md
