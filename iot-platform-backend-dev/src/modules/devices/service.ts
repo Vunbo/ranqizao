@@ -1,386 +1,34 @@
-import { randomUUID } from 'crypto';
 import {
   query,
   withTransaction,
-  type DatabaseExecutor,
 } from '../../database/client';
 import { HttpError } from '../../shared/http';
 import {
   deriveLocationRegionPath,
   normalizeLocationForStorage,
 } from '../../shared/location';
-
-interface DeviceAccessRow {
-  id: string;
-  name: string;
-  ownerId: string;
-  inventoryId: string | null;
-  serialNumber: string | null;
-  sharedWith: string[];
-}
-
-interface DeviceInventoryRow {
-  id: string;
-  qrCode: string;
-  serialNumber: string;
-  productModel: string;
-  firmwareVersion: string;
-  status: 'available' | 'bound' | 'disabled';
-}
-
-const poolExecutor: DatabaseExecutor = {
-  query,
-};
-
-const DEVICE_SELECT_SQL = `
-  SELECT
-    d.id,
-    d.name,
-    d.owner_id AS "ownerId",
-    owner_user.display_name AS "ownerDisplayName",
-    d.inventory_id AS "inventoryId",
-    d.serial_number AS "serialNumber",
-    (
-      SELECT hdl.home_id
-      FROM home_device_links hdl
-      WHERE hdl.device_id = d.id
-      ORDER BY hdl.created_at
-      LIMIT 1
-    ) AS "homeId",
-    COALESCE(
-      ARRAY(
-        SELECT hdl.home_id
-        FROM home_device_links hdl
-        WHERE hdl.device_id = d.id
-        ORDER BY hdl.created_at
-      ),
-      ARRAY[]::TEXT[]
-    ) AS "homeIds",
-    d.location,
-    d.is_on AS "isOn",
-    d.fire_level AS "fireLevel",
-    d.temp,
-    d.gas,
-    d.smoke,
-    d.flow,
-    d.human_detected AS "humanDetected",
-    d.vibration,
-    d.created_at AS "createdAt",
-    d.updated_at AS "updatedAt",
-    COALESCE(
-      ARRAY(
-        SELECT ds.user_id
-        FROM device_shares ds
-        WHERE ds.device_id = d.id
-        ORDER BY ds.user_id
-      ),
-      ARRAY[]::TEXT[]
-    ) AS "sharedWith",
-    COALESCE(
-      (
-        SELECT JSONB_AGG(
-          JSONB_BUILD_OBJECT(
-            'uid', share_user.short_uid,
-            'displayName', share_user.display_name
-          )
-          ORDER BY ds.created_at
-        )
-        FROM device_shares ds
-        INNER JOIN users share_user
-          ON share_user.short_uid = ds.user_id
-        WHERE ds.device_id = d.id
-      ),
-      '[]'::jsonb
-    ) AS "sharedWithProfiles"
-  FROM devices d
-  INNER JOIN users owner_user
-    ON owner_user.short_uid = d.owner_id
-`;
-
-async function getDeviceById(
-  deviceId: string,
-  executor: DatabaseExecutor = poolExecutor
-) {
-  const result = await executor.query(
-    `
-      ${DEVICE_SELECT_SQL}
-      WHERE d.id = $1
-      LIMIT 1
-    `,
-    [deviceId]
-  );
-
-  return result.rows[0] || null;
-}
-
-async function getAccessibleDevice(
-  deviceId: string,
-  userId: string
-): Promise<{ device: DeviceAccessRow | null; isOwner: boolean }> {
-  const result = await query<DeviceAccessRow>(
-    `
-      SELECT
-        d.id,
-        d.name,
-        d.owner_id AS "ownerId",
-        d.inventory_id AS "inventoryId",
-        d.serial_number AS "serialNumber",
-        COALESCE(
-          ARRAY(
-            SELECT ds.user_id
-            FROM device_shares ds
-            WHERE ds.device_id = d.id
-            ORDER BY ds.user_id
-          ),
-          ARRAY[]::TEXT[]
-        ) AS "sharedWith"
-      FROM devices d
-      WHERE d.id = $1
-        AND (
-          d.owner_id = $2
-          OR EXISTS (
-            SELECT 1
-            FROM device_shares ds
-            WHERE ds.device_id = d.id AND ds.user_id = $2
-          )
-          OR EXISTS (
-            SELECT 1
-            FROM home_device_links hdl
-            INNER JOIN home_members hm
-              ON hm.home_id = hdl.home_id
-            WHERE hdl.device_id = d.id
-              AND hm.user_id = $2
-          )
-        )
-      LIMIT 1
-    `,
-    [deviceId, userId]
-  );
-
-  const device = result.rows[0] || null;
-  return { device, isOwner: device?.ownerId === userId };
-}
-
-async function ensureTargetUserExists(userId: string) {
-  const found = await query<{ short_uid: string }>(
-    'SELECT short_uid FROM users WHERE short_uid = $1 LIMIT 1',
-    [userId]
-  );
-
-  if (!found.rowCount) {
-    throw new HttpError(404, '目标用户不存在。');
-  }
-}
-
-async function getInventoryByQrCode(
-  qrCode: string,
-  executor: DatabaseExecutor = poolExecutor,
-  forUpdate = false
-) {
-  const result = await executor.query<DeviceInventoryRow>(
-    `
-      SELECT
-        id,
-        qr_code AS "qrCode",
-        serial_number AS "serialNumber",
-        product_model AS "productModel",
-        firmware_version AS "firmwareVersion",
-        status
-      FROM device_inventory
-      WHERE qr_code = $1
-      LIMIT 1
-      ${forUpdate ? 'FOR UPDATE' : ''}
-    `,
-    [qrCode]
-  );
-
-  return result.rows[0] || null;
-}
-
-async function getBoundDeviceByInventory(
-  inventoryId: string,
-  executor: DatabaseExecutor = poolExecutor
-) {
-  const result = await executor.query<{ id: string; ownerId: string; name: string }>(
-    `
-      SELECT
-        id,
-        owner_id AS "ownerId",
-        name
-      FROM devices
-      WHERE inventory_id = $1
-      LIMIT 1
-    `,
-    [inventoryId]
-  );
-
-  return result.rows[0] || null;
-}
-
-async function createDeviceRecord(
-  executor: DatabaseExecutor,
-  input: {
-    ownerId: string;
-    name: string;
-    location?: unknown;
-    inventoryId?: string | null;
-    serialNumber?: string | null;
-  }
-) {
-  const ownerId = input.ownerId;
-  const name = String(input.name || '').trim();
-  const location = normalizeLocationForStorage(input.location);
-  const regionPath = location
-    ? deriveLocationRegionPath(location, { includeDistrict: true })
-    : null;
-
-  if (!name) {
-    throw new HttpError(400, '设备名称不能为空。');
-  }
-
-  const duplicate = await executor.query<{ id: string }>(
-    'SELECT id FROM devices WHERE owner_id = $1 AND name = $2 LIMIT 1',
-    [ownerId, name]
-  );
-
-  if (duplicate.rowCount) {
-    throw new HttpError(409, '当前账号下已存在同名设备。');
-  }
-
-  const result = await executor.query<{ id: string }>(
-    `
-      INSERT INTO devices (
-        id,
-        name,
-        owner_id,
-        inventory_id,
-        serial_number,
-        location,
-        region_path,
-        is_on,
-        fire_level,
-        temp,
-        gas,
-        smoke,
-        flow,
-        human_detected,
-        vibration
-      )
-      VALUES (
-        $1,
-        $2,
-        $3,
-        $4,
-        $5,
-        $6::jsonb,
-        $7,
-        FALSE,
-        60,
-        25,
-        0.05,
-        2,
-        0,
-        FALSE,
-        FALSE
-      )
-      RETURNING id
-    `,
-    [
-      randomUUID(),
-      name,
-      ownerId,
-      input.inventoryId ?? null,
-      input.serialNumber ?? null,
-      JSON.stringify(location),
-      regionPath,
-    ]
-  );
-
-  const device = await getDeviceById(result.rows[0].id, executor);
-
-  if (!device) {
-    throw new Error('Failed to load created device.');
-  }
-
-  return device;
-}
-
-async function createOperationLog(
-  executor: DatabaseExecutor,
-  input: {
-    deviceId: string;
-    ownerId: string;
-    event: string;
-    type: 'info' | 'warning' | 'success';
-  }
-) {
-  await executor.query(
-    `
-      INSERT INTO operation_logs (id, stove_id, owner_id, event, type)
-      VALUES ($1, $2, $3, $4, $5)
-    `,
-    [randomUUID(), input.deviceId, input.ownerId, input.event, input.type]
-  );
-}
-
-async function createBindingEvent(
-  executor: DatabaseExecutor,
-  input: {
-    inventoryId: string;
-    deviceId: string | null;
-    ownerId: string;
-    eventType: 'bind_success' | 'unbind_success';
-    detail?: unknown;
-  }
-) {
-  await executor.query(
-    `
-      INSERT INTO device_binding_events (
-        id,
-        inventory_id,
-        device_id,
-        owner_id,
-        event_type,
-        detail
-      )
-      VALUES ($1, $2, $3, $4, $5, $6::jsonb)
-    `,
-    [
-      randomUUID(),
-      input.inventoryId,
-      input.deviceId,
-      input.ownerId,
-      input.eventType,
-      JSON.stringify(input.detail ?? null),
-    ]
-  );
-}
+import {
+  createBindingEvent,
+  createDeviceRecord,
+  createOperationLog,
+  insertDeviceLog,
+} from './device-mutations';
+import {
+  ensureTargetUserExists,
+  findDuplicateDeviceName,
+  getAccessibleDevice,
+  getBoundDeviceByInventory,
+  getDeviceById,
+  getInventoryByQrCode,
+  getOwnedDeviceForDelete,
+  listDeviceLogsByDeviceId,
+  listVisibleDevices,
+  poolExecutor,
+  setInventoryStatus,
+} from './device-repository';
 
 export async function listDevices(uid: string) {
-  const result = await query(
-    `
-      ${DEVICE_SELECT_SQL}
-      WHERE
-        d.owner_id = $1
-        OR EXISTS (
-          SELECT 1
-          FROM device_shares ds
-          WHERE ds.device_id = d.id AND ds.user_id = $1
-        )
-        OR EXISTS (
-          SELECT 1
-          FROM home_device_links hdl
-          INNER JOIN home_members hm
-            ON hm.home_id = hdl.home_id
-          WHERE hdl.device_id = d.id
-            AND hm.user_id = $1
-        )
-      ORDER BY d.updated_at DESC
-    `,
-    [uid]
-  );
-
-  return result.rows;
+  return listVisibleDevices(uid);
 }
 
 export async function createDevice(input: {
@@ -416,14 +64,7 @@ export async function scanBindableDevice(input: {
   const boundDevice = await getBoundDeviceByInventory(inventory.id);
 
   if (boundDevice && inventory.status !== 'bound') {
-    await query(
-      `
-        UPDATE device_inventory
-        SET status = 'bound', updated_at = NOW()
-        WHERE id = $1
-      `,
-      [inventory.id]
-    );
+    await setInventoryStatus(inventory.id, 'bound');
     inventory.status = 'bound';
   }
 
@@ -485,14 +126,7 @@ export async function bindScannedDevice(input: {
       serialNumber: inventory.serialNumber,
     });
 
-    await executor.query(
-      `
-        UPDATE device_inventory
-        SET status = 'bound', updated_at = NOW()
-        WHERE id = $1
-      `,
-      [inventory.id]
-    );
+    await setInventoryStatus(inventory.id, 'bound', executor);
 
     await createOperationLog(executor, {
       deviceId: device.id,
@@ -571,12 +205,14 @@ export async function updateDevice(input: {
         throw new HttpError(400, '设备名称不能为空。');
       }
 
-      const duplicate = await query<{ id: string }>(
-        'SELECT id FROM devices WHERE owner_id = $1 AND name = $2 AND id <> $3 LIMIT 1',
-        [userId, name, deviceId]
+      const hasDuplicate = await findDuplicateDeviceName(
+        device.ownerId,
+        name,
+        poolExecutor,
+        deviceId
       );
 
-      if (duplicate.rowCount) {
+      if (hasDuplicate) {
         throw new HttpError(409, '当前账号下已存在同名设备。');
       }
 
@@ -636,44 +272,18 @@ export async function updateDevice(input: {
 
 export async function deleteDevice(input: { userId: string; deviceId: string }) {
   return withTransaction(async (executor) => {
-    const result = await executor.query<{
-      id: string;
-      name: string;
-      ownerId: string;
-      inventoryId: string | null;
-      serialNumber: string | null;
-    }>(
-      `
-        SELECT
-          d.id,
-          d.name,
-          d.owner_id AS "ownerId",
-          d.inventory_id AS "inventoryId",
-          d.serial_number AS "serialNumber"
-        FROM devices d
-        WHERE d.id = $1
-          AND d.owner_id = $2
-        LIMIT 1
-        FOR UPDATE
-      `,
-      [input.deviceId, input.userId]
+    const device = await getOwnedDeviceForDelete(
+      input.deviceId,
+      input.userId,
+      executor
     );
-
-    const device = result.rows[0] || null;
 
     if (!device) {
       throw new HttpError(404, '设备不存在或无权限删除。');
     }
 
     if (device.inventoryId) {
-      await executor.query(
-        `
-          UPDATE device_inventory
-          SET status = 'available', updated_at = NOW()
-          WHERE id = $1
-        `,
-        [device.inventoryId]
-      );
+      await setInventoryStatus(device.inventoryId, 'available', executor);
 
       await createBindingEvent(executor, {
         inventoryId: device.inventoryId,
@@ -700,24 +310,7 @@ export async function listDeviceLogs(input: { userId: string; deviceId: string }
     throw new HttpError(404, '设备不存在或无权限查看。');
   }
 
-  const result = await query(
-    `
-      SELECT
-        id,
-        stove_id AS "stoveId",
-        owner_id AS "ownerId",
-        event,
-        type,
-        created_at AS "createdAt"
-      FROM operation_logs
-      WHERE stove_id = $1
-      ORDER BY created_at DESC
-      LIMIT 100
-    `,
-    [input.deviceId]
-  );
-
-  return result.rows;
+  return listDeviceLogsByDeviceId(input.deviceId);
 }
 
 export async function createDeviceLog(input: {
@@ -743,22 +336,12 @@ export async function createDeviceLog(input: {
     throw new HttpError(400, '日志类型无效。');
   }
 
-  const result = await query(
-    `
-      INSERT INTO operation_logs (id, stove_id, owner_id, event, type)
-      VALUES ($1, $2, $3, $4, $5)
-      RETURNING
-        id,
-        stove_id AS "stoveId",
-        owner_id AS "ownerId",
-        event,
-        type,
-        created_at AS "createdAt"
-    `,
-    [randomUUID(), input.deviceId, device.ownerId, event, type]
-  );
-
-  return result.rows[0];
+  return insertDeviceLog(poolExecutor, {
+    deviceId: input.deviceId,
+    ownerId: device.ownerId,
+    event,
+    type: type as 'info' | 'warning' | 'success',
+  });
 }
 
 export async function shareDevice(input: {

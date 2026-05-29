@@ -1,34 +1,29 @@
-import React, { useState, useEffect } from 'react';
+import React, { Fragment, useState, useEffect } from 'react';
 import {
-  LayoutDashboard,
-  Settings,
-  ShieldAlert,
   Flame,
   ChevronRight,
   LogOut,
   Bell,
   Menu,
   User,
-  Cpu,
-  History,
-  Users,
   Sun,
   Moon
 } from 'lucide-react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { clsx, type ClassValue } from 'clsx';
 import { twMerge } from 'tailwind-merge';
+import { clearAuthSession, getStoredAuthUser } from '../lib/auth';
+import { OPS_NAV_ITEMS, OPS_ROUTES } from '../router/routes';
 
 function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
 }
 
 interface NavItemProps {
-  key?: string;
   icon: React.ElementType;
   label: string;
   active?: boolean;
-  onClick: () => void;
+  onClick: () => void | Promise<void>;
 }
 
 const NavItem = ({ icon: Icon, label, active, onClick }: NavItemProps) => (
@@ -69,15 +64,12 @@ export const Layout = ({ children }: { children: React.ReactNode }) => {
   const [isLight, setIsLight] = useState(false);
   const navigate = useNavigate();
   const location = useLocation();
-  const getUser = () => {
-    try {
-      const stored = localStorage.getItem('user');
-      return stored ? JSON.parse(stored) : { displayName: '管理员', role: 'super_admin' };
-    } catch (_error) {
-      return { displayName: '管理员', role: 'super_admin' };
-    }
+  const user = getStoredAuthUser() ?? {
+    adminId: '',
+    username: 'admin',
+    displayName: '管理员',
+    role: 'super_admin' as const,
   };
-  const user = getUser();
 
   useEffect(() => {
     if (isLight) {
@@ -87,21 +79,11 @@ export const Layout = ({ children }: { children: React.ReactNode }) => {
     }
   }, [isLight]);
 
-  const navItems = [
-    { id: 'dashboard', label: '仪表盘', icon: LayoutDashboard, path: '/dashboard' },
-    { id: 'devices', label: '设备管理', icon: Cpu, path: '/devices' },
-    { id: 'alerts', label: '告警中心', icon: ShieldAlert, path: '/alerts' },
-    { id: 'commands', label: '控制审计', icon: History, path: '/commands' },
-    { id: 'users', label: '用户与共享', icon: Users, path: '/users' },
-    { id: 'configs', label: '系统配置', icon: Settings, path: '/configs' },
-  ];
-
   const [isAlertsOpen, setIsAlertsOpen] = useState(false);
 
   const handleLogout = () => {
-    localStorage.removeItem('token');
-    localStorage.removeItem('user');
-    navigate('/login');
+    clearAuthSession();
+    navigate(OPS_ROUTES.login);
   };
 
   const alerts = [
@@ -131,14 +113,15 @@ export const Layout = ({ children }: { children: React.ReactNode }) => {
         </div>
 
         <nav className="flex-1 px-4 space-y-1">
-          {navItems.map((item) => (
-            <NavItem
-              key={item.id}
-              icon={item.icon}
-              label={isSidebarOpen ? item.label : ''}
-              active={location.pathname.startsWith(item.path)}
-              onClick={() => navigate(item.path)}
-            />
+          {OPS_NAV_ITEMS.map((item) => (
+            <Fragment key={item.id}>
+              <NavItem
+                icon={item.icon}
+                label={isSidebarOpen ? item.label : ''}
+                active={location.pathname.startsWith(item.path)}
+                onClick={() => navigate(item.path)}
+              />
+            </Fragment>
           ))}
         </nav>
 
@@ -162,7 +145,7 @@ export const Layout = ({ children }: { children: React.ReactNode }) => {
             <div className="flex items-center space-x-3">
               <div className="w-2 h-2 bg-brand rounded-full brand-glow animate-pulse" />
               <h1 className="text-text-primary text-sm font-display font-bold tracking-widest uppercase">
-                {navItems.find((item) => location.pathname.startsWith(item.path))?.label || '系统'}
+                {OPS_NAV_ITEMS.find((item) => location.pathname.startsWith(item.path))?.label || '系统'}
               </h1>
             </div>
           </div>
@@ -220,7 +203,7 @@ export const Layout = ({ children }: { children: React.ReactNode }) => {
 
             <div className="flex items-center space-x-4">
               <div className="text-right">
-                <p className="text-xs font-bold text-text-primary">{user.displayName || user.name}</p>
+                <p className="text-xs font-bold text-text-primary">{user.displayName || user.username}</p>
                 <p className="text-[9px] text-brand font-mono uppercase tracking-widest">{getRoleLabel(user.role)}</p>
               </div>
               <div className="w-10 h-10 rounded-xl bg-brand/10 border border-brand/20 flex items-center justify-center brand-glow">

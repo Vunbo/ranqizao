@@ -66,7 +66,7 @@
           </view>
         </view>
 
-        <text class="account-mgmt__error" v-if="error">{{ error }}</text>
+        <text v-if="error" class="account-mgmt__error">{{ error }}</text>
 
         <view class="account-mgmt__submit" @tap="submitChangePassword">
           <text class="account-mgmt__submit-text">{{ submitting ? '提交中...' : '确认修改' }}</text>
@@ -77,11 +77,10 @@
 </template>
 
 <script setup>
-import { computed, ref } from 'vue'
 import AppIcon from '../ui/AppIcon.vue'
 import CardBox from '../ui/CardBox.vue'
 import AccountBindingView from './AccountBindingView.vue'
-import { changePassword } from '../../services/gateway'
+import { useAccountManagementController } from '../../services/features/profile/account-management-controller'
 
 const props = defineProps({
   user: {
@@ -92,57 +91,18 @@ const props = defineProps({
 
 const emit = defineEmits(['back', 'toast', 'request-confirm'])
 
-const currentPassword = ref('')
-const newPassword = ref('')
-const confirmPassword = ref('')
-const submitting = ref(false)
-const error = ref('')
-
-const uid = computed(() => {
-  return props.user && props.user.uid ? props.user.uid : ''
+const {
+  currentPassword,
+  newPassword,
+  confirmPassword,
+  submitting,
+  error,
+  uid,
+  submitChangePassword,
+} = useAccountManagementController({
+  props,
+  notify: (payload) => emit('toast', payload),
 })
-
-function resetPasswordForm() {
-  currentPassword.value = ''
-  newPassword.value = ''
-  confirmPassword.value = ''
-  error.value = ''
-}
-
-async function submitChangePassword() {
-  if (submitting.value) {
-    return
-  }
-
-  if (!currentPassword.value || !newPassword.value || !confirmPassword.value) {
-    error.value = '请完整填写密码信息'
-    return
-  }
-
-  if (newPassword.value !== confirmPassword.value) {
-    error.value = '两次输入的新密码不一致'
-    return
-  }
-
-  submitting.value = true
-  error.value = ''
-
-  try {
-    await changePassword({
-      currentPassword: currentPassword.value,
-      newPassword: newPassword.value,
-    })
-    resetPasswordForm()
-    emit('toast', {
-      message: '密码修改成功',
-      type: 'success',
-    })
-  } catch (requestError) {
-    error.value = requestError.message || '修改密码失败'
-  } finally {
-    submitting.value = false
-  }
-}
 </script>
 
 <style scoped>

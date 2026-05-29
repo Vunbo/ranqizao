@@ -208,283 +208,37 @@
 </template>
 
 <script setup>
-import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
 import AppIcon from '../ui/AppIcon.vue'
 import CardBox from '../ui/CardBox.vue'
-import {
-  getAvailableAppQuickLoginProviders,
-  loginWithGoogleApp,
-  loginWithMiniProgram,
-  loginWithWechatApp,
-  loginWithPassword,
-  loginWithPhoneCode,
-  registerWithPassword,
-  sendPhoneLoginCode,
-} from '../../services/gateway'
+import { useAuthPanelController } from '../../services/features/auth/auth-panel-controller'
 
 const emit = defineEmits(['auth-success', 'toast'])
 
-const isLogin = ref(true)
-const authMethod = ref('email')
-const email = ref('')
-const password = ref('')
-const confirmPassword = ref('')
-const phone = ref('')
-const phoneCode = ref('')
-const phoneCountdown = ref(0)
-const loading = ref(false)
-const error = ref('')
-let phoneCountdownTimer = null
-const appQuickLoginSupport = ref({
-  wechatApp: {
-    supported: true,
-    reason: '',
-  },
-  googleApp: {
-    supported: true,
-    reason: '',
-  },
+const {
+  isLogin,
+  authMethod,
+  email,
+  password,
+  confirmPassword,
+  phone,
+  phoneCode,
+  phoneCountdown,
+  loading,
+  error,
+  appQuickLoginSupport,
+  phoneCountdownText,
+  submitText,
+  appQuickLoginHint,
+  toggleAuthMode,
+  handleSendPhoneCode,
+  handleAuth,
+  handleMiniProgramLogin,
+  handleWechatAppLogin,
+  handleGoogleAppLogin,
+} = useAuthPanelController({
+  emitAuthSuccess: (session) => emit('auth-success', session),
+  notify: (payload) => emit('toast', payload),
 })
-
-const phoneCountdownText = computed(() => {
-  if (phoneCountdown.value > 0) {
-    return `${phoneCountdown.value}s 后重发`
-  }
-  return '发送验证码'
-})
-
-const submitText = computed(() => {
-  if (isLogin.value) {
-    return authMethod.value === 'phone' ? '手机号登录' : '登录'
-  }
-  return '注册'
-})
-
-const appQuickLoginHint = computed(() => {
-  if (!appQuickLoginSupport.value.wechatApp.supported) {
-    return appQuickLoginSupport.value.wechatApp.reason
-  }
-
-  if (!appQuickLoginSupport.value.googleApp.supported) {
-    return appQuickLoginSupport.value.googleApp.reason
-  }
-
-  return ''
-})
-
-onMounted(async () => {
-  // #ifdef APP-PLUS
-  appQuickLoginSupport.value = await getAvailableAppQuickLoginProviders()
-  // #endif
-})
-
-onBeforeUnmount(() => {
-  clearPhoneCountdown()
-})
-
-function clearPhoneCountdown() {
-  if (phoneCountdownTimer) {
-    clearInterval(phoneCountdownTimer)
-    phoneCountdownTimer = null
-  }
-}
-
-function toggleAuthMode() {
-  isLogin.value = !isLogin.value
-  authMethod.value = 'email'
-  error.value = ''
-  password.value = ''
-  confirmPassword.value = ''
-  phoneCode.value = ''
-}
-
-function isFormValid() {
-  if (isLogin.value) {
-    if (authMethod.value === 'phone') {
-      return Boolean(phone.value && phoneCode.value)
-    }
-
-    return Boolean(email.value && password.value)
-  }
-
-  return Boolean(
-    email.value &&
-      password.value &&
-      confirmPassword.value &&
-      password.value === confirmPassword.value
-  )
-}
-
-async function handleSendPhoneCode() {
-  if (loading.value || phoneCountdown.value > 0) {
-    return
-  }
-
-  if (!phone.value) {
-    error.value = '请输入手机号'
-    return
-  }
-
-  loading.value = true
-
-  try {
-    const result = await sendPhoneLoginCode({
-      phone: phone.value,
-    })
-
-    phoneCountdown.value = 60
-    clearPhoneCountdown()
-    phoneCountdownTimer = setInterval(() => {
-      if (phoneCountdown.value <= 1) {
-        phoneCountdown.value = 0
-        clearPhoneCountdown()
-        return
-      }
-
-      phoneCountdown.value -= 1
-    }, 1000)
-
-    emit('toast', {
-      message:
-        result && result.debugCode
-          ? `验证码已发送，当前调试验证码：${result.debugCode}`
-          : '验证码已发送',
-      type: 'success',
-    })
-  } catch (requestError) {
-    error.value = requestError.message || '发送验证码失败'
-  } finally {
-    loading.value = false
-  }
-}
-
-async function handleAuth() {
-  if (loading.value || !isFormValid()) {
-    return
-  }
-
-  loading.value = true
-  error.value = ''
-
-  try {
-    let session = null
-
-    if (isLogin.value && authMethod.value === 'phone') {
-      session = await loginWithPhoneCode({
-        phone: phone.value,
-        code: phoneCode.value,
-      })
-    } else if (isLogin.value) {
-      session = await loginWithPassword({
-        email: email.value,
-        password: password.value,
-      })
-    } else {
-      if (password.value !== confirmPassword.value) {
-        throw new Error('两次输入的密码不一致')
-      }
-
-      session = await registerWithPassword({
-        email: email.value,
-        password: password.value,
-      })
-    }
-
-    emit('auth-success', session)
-  } catch (requestError) {
-    error.value = requestError.message || '认证失败，请检查输入内容'
-  } finally {
-    loading.value = false
-  }
-}
-
-async function handleMiniProgramLogin() {
-  if (loading.value) {
-    return
-  }
-
-  loading.value = true
-
-  try {
-    const session = await loginWithMiniProgram()
-    emit('toast', {
-      message: '微信登录成功',
-      type: 'success',
-    })
-    emit('auth-success', session)
-  } catch (requestError) {
-    emit('toast', {
-      message: requestError.message || '微信登录失败',
-      type: 'error',
-    })
-  } finally {
-    loading.value = false
-  }
-}
-
-async function handleWechatAppLogin() {
-  if (loading.value) {
-    return
-  }
-
-  if (!appQuickLoginSupport.value.wechatApp.supported) {
-    emit('toast', {
-      message: appQuickLoginSupport.value.wechatApp.reason || '当前环境不可用微信 App 快捷登录',
-      type: 'error',
-    })
-    return
-  }
-
-  loading.value = true
-
-  try {
-    const session = await loginWithWechatApp()
-    emit('toast', {
-      message: '微信登录成功',
-      type: 'success',
-    })
-    emit('auth-success', session)
-  } catch (requestError) {
-    emit('toast', {
-      message: requestError.message || '微信登录失败',
-      type: 'error',
-    })
-  } finally {
-    loading.value = false
-  }
-}
-
-async function handleGoogleAppLogin() {
-  if (loading.value) {
-    return
-  }
-
-  if (!appQuickLoginSupport.value.googleApp.supported) {
-    emit('toast', {
-      message: appQuickLoginSupport.value.googleApp.reason || '当前环境不可用 Google App 快捷登录',
-      type: 'error',
-    })
-    return
-  }
-
-  loading.value = true
-
-  try {
-    const session = await loginWithGoogleApp()
-    emit('toast', {
-      message: 'Google 登录成功',
-      type: 'success',
-    })
-    emit('auth-success', session)
-  } catch (requestError) {
-    emit('toast', {
-      message: requestError.message || 'Google 登录失败',
-      type: 'error',
-    })
-  } finally {
-    loading.value = false
-  }
-}
 </script>
 
 <style scoped>

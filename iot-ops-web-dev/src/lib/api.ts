@@ -1,4 +1,5 @@
 import { buildApiUrl } from './runtime';
+import { getAuthToken } from './auth';
 
 export class ApiError extends Error {
   constructor(
@@ -10,14 +11,6 @@ export class ApiError extends Error {
   }
 }
 
-function getStoredToken() {
-  try {
-    return localStorage.getItem('token') || '';
-  } catch (_error) {
-    return '';
-  }
-}
-
 export async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
   const headers = new Headers(init.headers || {});
 
@@ -25,7 +18,7 @@ export async function request<T>(path: string, init: RequestInit = {}): Promise<
     headers.set('Content-Type', 'application/json');
   }
 
-  const token = getStoredToken();
+  const token = getAuthToken();
   if (token) {
     headers.set('Authorization', `Bearer ${token}`);
   }

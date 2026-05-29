@@ -1,40 +1,15 @@
-import { query } from '../../../database/client';
 import { deriveDeviceStatus, deriveOnline, normalizeLocation } from '../common/device-view';
-
-interface DashboardDeviceRow {
-  id: string;
-  location: unknown;
-  gas: number;
-  smoke: number;
-  vibration: boolean;
-  locked: boolean;
-  lastHeartbeatAt: string | null;
-  createdAt: string;
-}
+import { countPendingAlerts, listDashboardDeviceRows } from './dashboard-repository';
 
 export async function getOpsDashboardSummary() {
-  const devicesResult = await query<DashboardDeviceRow>(
-    `
-      SELECT
-        d.id,
-        d.location,
-        d.gas,
-        d.smoke,
-        d.vibration,
-        d.locked,
-        d.last_heartbeat_at AS "lastHeartbeatAt",
-        d.created_at AS "createdAt"
-      FROM devices d
-    `
-  );
-
+  const devices = await listDashboardDeviceRows();
   const now = new Date();
   let onlineDevices = 0;
   let offlineDevices = 0;
   let alertDevices = 0;
   let todayNewDevices = 0;
 
-  for (const row of devicesResult.rows) {
+  for (const row of devices) {
     const online = deriveOnline(row.lastHeartbeatAt);
     const status = deriveDeviceStatus({
       online,
@@ -64,17 +39,13 @@ export async function getOpsDashboardSummary() {
     }
   }
 
-  const alertsResult = await query<{ count: string }>(
-    "SELECT COUNT(*)::text AS count FROM alerts WHERE status = 'pending'"
-  );
-
   return {
-    totalDevices: devicesResult.rows.length,
+    totalDevices: devices.length,
     onlineDevices,
     offlineDevices,
     alertDevices,
     todayNewDevices,
-    activeAlerts: Number(alertsResult.rows[0]?.count || 0),
+    activeAlerts: await countPendingAlerts(),
   };
 }
 
@@ -86,25 +57,10 @@ export async function getOpsDashboardMap(input: {
   const level = String(input.level || 'province').trim();
   const country = String(input.country || '').trim();
   const province = String(input.province || '').trim();
-
-  const result = await query<DashboardDeviceRow>(
-    `
-      SELECT
-        d.id,
-        d.location,
-        d.gas,
-        d.smoke,
-        d.vibration,
-        d.locked,
-        d.last_heartbeat_at AS "lastHeartbeatAt",
-        d.created_at AS "createdAt"
-      FROM devices d
-    `
-  );
-
+  const devices = await listDashboardDeviceRows();
   const bucketMap = new Map<string, { total: number; online: number; offline: number; alert: number }>();
 
-  for (const row of result.rows) {
+  for (const row of devices) {
     const normalizedLocation = normalizeLocation(row.location);
     const online = deriveOnline(row.lastHeartbeatAt);
     const status = deriveDeviceStatus({

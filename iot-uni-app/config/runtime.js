@@ -123,7 +123,7 @@ const runtimeConfig = Object.freeze({
 export function getRuntimeConfig() {
   if (!runtimeConfig.apiBaseUrl) {
     throw new Error(
-      '未配置 API_BASE_URL。请在 .env 中设置 VITE_API_BASE_URL 或 VUE_APP_API_BASE_URL，真机/小程序请使用局域网 IP 或正式域名。'
+      '未配置 API_BASE_URL。请在环境文件中设置 VITE_API_BASE_URL 或 VUE_APP_API_BASE_URL，真机和小程序请使用局域网 IP 或正式域名。'
     )
   }
 

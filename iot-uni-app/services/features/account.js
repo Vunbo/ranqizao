@@ -1,0 +1,15 @@
+export {
+  bindEmailIdentity,
+  bindGoogleAppIdentity,
+  bindMiniProgramIdentity,
+  bindPhoneIdentity,
+  bindWechatAppIdentity,
+  changePassword,
+  getGoogleAppVerificationPayload,
+  getWechatAppVerificationCode,
+  listAuthIdentities,
+  sendPhoneBindCode,
+  sendPhoneUnbindCode,
+  unbindIdentity,
+  updateCurrentUserProfile,
+} from '../gateway/auth'

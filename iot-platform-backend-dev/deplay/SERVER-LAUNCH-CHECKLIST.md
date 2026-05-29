@@ -51,7 +51,7 @@
 
 ## 5. 运营后台部署
 
-- [ ] `iot-ops-web-dev/.env` 或构建环境变量已设置：
+- [ ] `iot-ops-web-dev/.env.production` 或构建环境变量已设置：
   - [ ] `VITE_API_BASE_URL=https://your-api-domain/api`。
 - [ ] 已在 `iot-ops-web-dev/` 中执行 `npm install`。
 - [ ] 已在 `iot-ops-web-dev/` 中执行 `npm run build`。
@@ -61,7 +61,7 @@
 
 ## 6. uni-app / 小程序运行配置
 
-- [ ] `iot-uni-app/.env` 同时设置：
+- [ ] `iot-uni-app/.env.production` 已设置（测试包使用 `.env.test`）：
   - [ ] `VUE_APP_API_BASE_URL=https://your-api-domain/api`。
   - [ ] `VITE_API_BASE_URL=https://your-api-domain/api`。
 - [ ] 真机或小程序配置中没有使用 `localhost`。

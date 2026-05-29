@@ -33,7 +33,7 @@
           :device="currentDevice"
           :devices="devices"
           :user="user"
-          @back="selectedDeviceId = ''"
+          @back="clearSelectedDevice"
           @toast="openToast"
           @request-confirm="openConfirm"
           @refresh="refreshAll(true)"
@@ -43,8 +43,8 @@
           v-else-if="activeTab === 'home'"
           :devices="devices"
           :user="user"
-          @select-device="selectedDeviceId = $event"
-          @open-add-device="isAddModalOpen = true"
+          @select-device="selectDevice"
+          @open-add-device="openAddDeviceModal"
         />
 
         <safety-view
@@ -79,7 +79,7 @@
         :visible="isAddModalOpen"
         :user="user"
         :existing-devices="devices"
-        @close="isAddModalOpen = false"
+        @close="closeAddDeviceModal"
         @toast="openToast"
         @refresh="refreshAll(true)"
       />
@@ -88,7 +88,7 @@
 </template>
 
 <script setup>
-import { computed, onMounted, onBeforeUnmount, ref } from 'vue'
+import { onMounted, onBeforeUnmount, ref } from 'vue'
 import AuthPanel from '../auth/AuthPanel.vue'
 import AddDeviceModal from '../device/AddDeviceModal.vue'
 import DeviceDetailView from '../device/DeviceDetailView.vue'
@@ -99,32 +99,37 @@ import SafetyView from '../safety/SafetyView.vue'
 import AppIcon from '../ui/AppIcon.vue'
 import ConfirmDialog from '../ui/ConfirmDialog.vue'
 import ToastBar from '../ui/ToastBar.vue'
-import {
-  listDevices,
-  listHomes,
-  logoutCurrentSession,
-  restoreSession,
-} from '../../services/gateway'
+import { useAppShellController } from '../../services/app/shell-controller'
 
-const authReady = ref(false)
-const user = ref(null)
-const devices = ref([])
-const homes = ref([])
-const activeTab = ref('home')
-const selectedDeviceId = ref('')
-const activeSubView = ref('main')
-const isAddModalOpen = ref(false)
 const toast = ref(null)
 const toastTimer = ref(null)
 const confirmDialog = ref(null)
-const refreshTimer = ref(null)
-
-const currentDevice = computed(() => {
-  return devices.value.find((item) => item.id === selectedDeviceId.value) || null
-})
-
-const showBottomNavigation = computed(() => {
-  return !selectedDeviceId.value && activeSubView.value === 'main' && !isAddModalOpen.value
+const {
+  authReady,
+  user,
+  devices,
+  homes,
+  activeTab,
+  selectedDeviceId,
+  activeSubView,
+  isAddModalOpen,
+  currentDevice,
+  showBottomNavigation,
+  bootstrapSession,
+  handleAuthSuccess,
+  handleTabChange,
+  handleUserUpdated,
+  handlePageShow,
+  handlePullDownRefresh,
+  refreshAll,
+  stopPolling,
+  selectDevice,
+  clearSelectedDevice,
+  openAddDeviceModal,
+  closeAddDeviceModal,
+  logout,
+} = useAppShellController({
+  onToast: openToast,
 })
 
 onMounted(() => {
@@ -135,102 +140,6 @@ onBeforeUnmount(() => {
   stopPolling()
   clearToast()
 })
-
-function handlePageShow() {
-  if (user.value) {
-    refreshAll(false)
-  }
-}
-
-function handlePullDownRefresh() {
-  return refreshAll(true)
-}
-
-async function bootstrapSession() {
-  authReady.value = false
-  try {
-    const session = await restoreSession()
-    if (session && session.user) {
-      user.value = session.user
-      await refreshAll(true)
-      startPolling()
-    } else {
-      resetViewState()
-    }
-  } catch (error) {
-    resetViewState()
-    openToast({
-      message: '会话已失效，请重新登录',
-      type: 'info',
-    })
-  } finally {
-    authReady.value = true
-  }
-}
-
-async function handleAuthSuccess(session) {
-  user.value = session.user
-  activeTab.value = 'home'
-  activeSubView.value = 'main'
-  selectedDeviceId.value = ''
-  isAddModalOpen.value = false
-  authReady.value = true
-  await refreshAll(true)
-  startPolling()
-}
-
-function handleTabChange(tab) {
-  activeTab.value = tab
-  if (tab !== 'profile') {
-    activeSubView.value = 'main'
-  }
-}
-
-function handleUserUpdated(nextUser) {
-  user.value = nextUser
-}
-
-async function refreshAll(showErrors) {
-  if (!user.value) {
-    devices.value = []
-    homes.value = []
-    return
-  }
-
-  try {
-    const [devicesResult, homesResult] = await Promise.all([listDevices(), listHomes()])
-    devices.value = devicesResult
-    homes.value = homesResult
-
-    if (
-      selectedDeviceId.value &&
-      !devicesResult.some((device) => device.id === selectedDeviceId.value)
-    ) {
-      selectedDeviceId.value = ''
-    }
-  } catch (error) {
-    if (showErrors) {
-      openToast({
-        message: error.message || '数据加载失败',
-        type: 'error',
-      })
-    }
-  }
-}
-
-function startPolling() {
-  stopPolling()
-  refreshTimer.value = setInterval(() => {
-    refreshAll(false)
-  }, 3000)
-}
-
-function stopPolling() {
-  if (refreshTimer.value) {
-    clearInterval(refreshTimer.value)
-    refreshTimer.value = null
-  }
-}
 
 function openToast(payload) {
   if (!payload) {
@@ -281,9 +190,7 @@ function requestLogout() {
     confirmText: '确认退出',
     onConfirm: async () => {
       try {
-        await logoutCurrentSession()
-        stopPolling()
-        resetViewState()
+        await logout()
         openToast({
           message: '已退出登录',
           type: 'success',
@@ -296,16 +203,6 @@ function requestLogout() {
       }
     },
   })
-}
-
-function resetViewState() {
-  user.value = null
-  devices.value = []
-  homes.value = []
-  activeTab.value = 'home'
-  activeSubView.value = 'main'
-  selectedDeviceId.value = ''
-  isAddModalOpen.value = false
 }
 
 defineExpose({

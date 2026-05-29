@@ -1,16 +1,8 @@
 import bcrypt from 'bcryptjs';
-import { query } from '../../../database/client';
 import { type AdminAuthUser, signAdminAuthToken } from '../../../shared/admin-auth';
 import { HttpError } from '../../../shared/http';
-
-interface AdminUserRow {
-  id: string;
-  username: string;
-  displayName: string;
-  role: 'super_admin' | 'ops_admin' | 'ops_viewer';
-  status: 'active' | 'disabled';
-  passwordHash: string;
-}
+import { markAdminLogin } from './auth-mutations';
+import { getAdminById, getAdminByUsername, type AdminUserRow } from './auth-repository';
 
 function toAdminAuthUser(admin: AdminUserRow): AdminAuthUser {
   return {
@@ -19,45 +11,6 @@ function toAdminAuthUser(admin: AdminUserRow): AdminAuthUser {
     displayName: admin.displayName,
     role: admin.role,
   };
-}
-
-async function getAdminByUsername(username: string) {
-  const result = await query<AdminUserRow>(
-    `
-      SELECT
-        id,
-        username,
-        display_name AS "displayName",
-        role,
-        status,
-        password_hash AS "passwordHash"
-      FROM admin_users
-      WHERE username = $1
-      LIMIT 1
-    `,
-    [String(username || '').trim()]
-  );
-
-  return result.rows[0] || null;
-}
-
-async function getAdminById(adminId: string) {
-  const result = await query<Omit<AdminUserRow, 'passwordHash'>>(
-    `
-      SELECT
-        id,
-        username,
-        display_name AS "displayName",
-        role,
-        status
-      FROM admin_users
-      WHERE id = $1
-      LIMIT 1
-    `,
-    [adminId]
-  );
-
-  return result.rows[0] || null;
 }
 
 export async function loginAdmin(input: { username: string; password: string }) {
@@ -82,10 +35,7 @@ export async function loginAdmin(input: { username: string; password: string }) 
     throw new HttpError(401, '账号或密码错误。');
   }
 
-  await query(
-    'UPDATE admin_users SET last_login_at = NOW(), updated_at = NOW() WHERE id = $1',
-    [admin.id]
-  );
+  await markAdminLogin(admin.id);
 
   const user = toAdminAuthUser(admin);
   return {

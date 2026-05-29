@@ -177,14 +177,9 @@
 </template>
 
 <script setup>
-import { computed, ref } from 'vue'
 import AppIcon from '../ui/AppIcon.vue'
 import CardBox from '../ui/CardBox.vue'
-import {
-  createHome,
-  removeHome,
-  updateHomeDeviceLinks,
-} from '../../services/gateway'
+import { useHomeManagementController } from '../../services/features/profile/home-management-controller'
 
 const props = defineProps({
   homes: {
@@ -202,169 +197,32 @@ const props = defineProps({
 })
 
 const emit = defineEmits(['back', 'toast', 'request-confirm', 'refresh'])
-
-const isAddModalOpen = ref(false)
-const newHomeName = ref('')
-const editingHomeId = ref('')
-const isAdjusting = ref(false)
-const tempSelectedDeviceIds = ref([])
-const isSaving = ref(false)
-
-const currentHome = computed(() => {
-  return props.homes.find((home) => home.id === editingHomeId.value) || null
+const {
+  isAddModalOpen,
+  newHomeName,
+  currentHome,
+  isAdjusting,
+  tempSelectedDeviceIds,
+  isSaving,
+  linkedDevices,
+  ownerDisplayName,
+  ownerInitial,
+  ownedDevices,
+  getMemberDisplayName,
+  openHome,
+  closeOverlay,
+  handleCreateHome,
+  requestDeleteHome,
+  startAdjust,
+  cancelAdjust,
+  toggleDevice,
+  saveLinks,
+} = useHomeManagementController({
+  props,
+  notify: (payload) => emit('toast', payload),
+  requestConfirm: (payload) => emit('request-confirm', payload),
+  onRefresh: () => emit('refresh'),
 })
-
-const linkedDevices = computed(() => {
-  if (!currentHome.value) {
-    return []
-  }
-  return props.devices.filter((device) => (currentHome.value.deviceIds || []).includes(device.id))
-})
-
-const shortUidLabel = computed(() => {
-  return props.user && props.user.uid ? props.user.uid.slice(0, 8) : '--------'
-})
-
-const ownerDisplayName = computed(() => {
-  if (currentHome.value && currentHome.value.ownerId !== shortUidLabel.value) {
-    return currentHome.value.ownerDisplayName || currentHome.value.ownerId
-  }
-  return props.user && props.user.displayName ? props.user.displayName : shortUidLabel.value
-})
-
-const ownerInitial = computed(() => {
-  return ownerDisplayName.value.slice(0, 1) || '-'
-})
-
-const ownedDevices = computed(() => {
-  const shortUid = props.user && props.user.uid ? props.user.uid.slice(0, 8) : ''
-  return props.devices.filter((device) => device.ownerId === shortUid)
-})
-
-function getMemberDisplayName(memberUid) {
-  const memberProfiles = currentHome.value && Array.isArray(currentHome.value.memberProfiles)
-    ? currentHome.value.memberProfiles
-    : []
-  const matchedProfile = memberProfiles.find((profile) => profile && profile.uid === memberUid)
-  return matchedProfile && matchedProfile.displayName ? matchedProfile.displayName : memberUid
-}
-
-function openHome(homeId) {
-  editingHomeId.value = homeId
-  isAdjusting.value = false
-  tempSelectedDeviceIds.value = []
-}
-
-function closeOverlay() {
-  editingHomeId.value = ''
-  isAdjusting.value = false
-  tempSelectedDeviceIds.value = []
-}
-
-async function handleCreateHome() {
-  const normalizedName = String(newHomeName.value || '').trim()
-  if (!normalizedName || !props.user) {
-    return
-  }
-  const shortUid = props.user.uid.slice(0, 8)
-  const duplicated = props.homes.some((home) => {
-    return home.ownerId === shortUid && String(home.name || '').trim() === normalizedName
-  })
-  if (duplicated) {
-    emit('toast', {
-      message: '家庭名称已存在，请更换一个名称',
-      type: 'error',
-    })
-    return
-  }
-  try {
-    await createHome(normalizedName)
-    emit('refresh')
-    emit('toast', {
-      message: '家庭创建成功',
-      type: 'success',
-    })
-    newHomeName.value = ''
-    isAddModalOpen.value = false
-  } catch (requestError) {
-    emit('toast', {
-      message: requestError.message || '创建失败',
-      type: 'error',
-    })
-  }
-}
-
-function requestDeleteHome() {
-  if (!currentHome.value) {
-    return
-  }
-  const home = currentHome.value
-  emit('request-confirm', {
-    title: '删除家庭',
-    message: `确定要删除家庭“${home.name}”吗？删除后，该家庭成员关系和设备关联关系将被移除。`,
-    confirmText: '确认删除',
-    onConfirm: async () => {
-      try {
-        await removeHome(home.id)
-        emit('refresh')
-        closeOverlay()
-        emit('toast', {
-          message: '家庭已删除',
-          type: 'success',
-        })
-      } catch (requestError) {
-        emit('toast', {
-          message: requestError.message || '删除失败',
-          type: 'error',
-        })
-      }
-    },
-  })
-}
-
-function startAdjust() {
-  if (!currentHome.value) {
-    return
-  }
-  tempSelectedDeviceIds.value = (currentHome.value.deviceIds || []).slice()
-  isAdjusting.value = true
-}
-
-function cancelAdjust() {
-  isAdjusting.value = false
-  tempSelectedDeviceIds.value = []
-}
-
-function toggleDevice(deviceId) {
-  if (tempSelectedDeviceIds.value.includes(deviceId)) {
-    tempSelectedDeviceIds.value = tempSelectedDeviceIds.value.filter((item) => item !== deviceId)
-    return
-  }
-  tempSelectedDeviceIds.value = tempSelectedDeviceIds.value.concat(deviceId)
-}
-
-async function saveLinks() {
-  if (!currentHome.value || isSaving.value) {
-    return
-  }
-  isSaving.value = true
-  try {
-    await updateHomeDeviceLinks(currentHome.value.id, tempSelectedDeviceIds.value.slice())
-    emit('refresh')
-    emit('toast', {
-      message: '关联已更新',
-      type: 'success',
-    })
-    isAdjusting.value = false
-  } catch (requestError) {
-    emit('toast', {
-      message: requestError.message || '保存失败',
-      type: 'error',
-    })
-  } finally {
-    isSaving.value = false
-  }
-}
 </script>
 
 <style scoped>

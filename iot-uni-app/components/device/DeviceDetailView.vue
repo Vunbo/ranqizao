@@ -14,7 +14,7 @@
         <view v-if="isOwner" class="device-detail__action" @tap="openRename">
           <app-icon name="edit" :size="16" color="#64748b" />
         </view>
-        <view v-if="isOwner" class="device-detail__action device-detail__action--blue" @tap="isShareModalOpen = true">
+        <view v-if="isOwner" class="device-detail__action device-detail__action--blue" @tap="openShare">
           <app-icon name="globe" :size="16" color="#3b82f6" />
         </view>
         <view class="device-detail__action device-detail__action--danger" @tap="requestDelete">
@@ -167,7 +167,7 @@
       </view>
     </view>
 
-    <view v-if="isRenameModalOpen" class="modal-mask" @tap="isRenameModalOpen = false">
+    <view v-if="isRenameModalOpen" class="modal-mask" @tap="closeRename">
       <view class="device-detail__modal" @tap.stop>
         <text class="device-detail__modal-title">重命名设备</text>
         <text class="device-detail__modal-desc">请输入设备的新名称</text>
@@ -180,7 +180,7 @@
           />
         </view>
         <view class="device-detail__modal-actions">
-          <view class="device-detail__modal-ghost" @tap="isRenameModalOpen = false">
+          <view class="device-detail__modal-ghost" @tap="closeRename">
             <text class="device-detail__modal-ghost-text">取消</text>
           </view>
           <view class="device-detail__modal-primary" @tap="handleRename">
@@ -190,11 +190,11 @@
       </view>
     </view>
 
-    <view v-if="isShareModalOpen" class="modal-mask" @tap="isShareModalOpen = false">
+    <view v-if="isShareModalOpen" class="modal-mask" @tap="closeShare">
       <view class="device-detail__modal" @tap.stop>
         <view class="device-detail__share-head">
           <text class="device-detail__modal-title">设备共享</text>
-          <view class="device-detail__close" @tap="isShareModalOpen = false">
+          <view class="device-detail__close" @tap="closeShare">
             <app-icon name="close" :size="14" color="#94a3b8" />
           </view>
         </view>
@@ -240,16 +240,9 @@
 </template>
 
 <script setup>
-import { computed, ref, watch } from 'vue'
 import AppIcon from '../ui/AppIcon.vue'
 import CardBox from '../ui/CardBox.vue'
-import {
-  createDeviceLog,
-  removeDevice,
-  shareDevice,
-  unshareDevice,
-  updateDevice,
-} from '../../services/gateway'
+import { useDeviceDetailController } from '../../services/features/device/device-detail-controller'
 
 const emit = defineEmits(['back', 'toast', 'refresh', 'request-confirm'])
 
@@ -268,310 +261,40 @@ const props = defineProps({
   },
 })
 
-const fireLevels = [20, 40, 60, 80, 100]
-const cookingModes = [
-  {
-    title: '爆炒模式',
-    desc: '大火快炒，适合锁住食材鲜香',
-    icon: 'flame',
-    color: '#f97316',
-    bg: '#fff7ed',
-    level: 100,
-  },
-  {
-    title: '文火慢炖',
-    desc: '恒温细煮，适合长时间炖煮',
-    icon: 'thermometer',
-    color: '#3b82f6',
-    bg: '#eff6ff',
-    level: 20,
-  },
-  {
-    title: '蒸煮模式',
-    desc: '中高火稳定输出，适合蒸煮类烹饪',
-    icon: 'droplet',
-    color: '#06b6d4',
-    bg: '#ecfeff',
-    level: 60,
-  },
-  {
-    title: '一键煎炸',
-    desc: '精准控温，减少焦糊风险',
-    icon: 'activity',
-    color: '#f59e0b',
-    bg: '#fffbeb',
-    level: 80,
-  },
-]
-
-const isPending = ref(false)
-const isShareModalOpen = ref(false)
-const isRenameModalOpen = ref(false)
-const newName = ref('')
-const shareUid = ref('')
-const shareLoading = ref(false)
-
-const displayIsOn = computed(() => {
-  return props.device ? !!props.device.isOn : false
+const {
+  fireLevels,
+  cookingModes,
+  isPending,
+  isShareModalOpen,
+  isRenameModalOpen,
+  newName,
+  shareUid,
+  shareLoading,
+  displayIsOn,
+  displayFireLevel,
+  isOwner,
+  sharedUsers,
+  flameColor,
+  glowColor,
+  flameTransform,
+  progressRingSvg,
+  openRename,
+  closeRename,
+  openShare,
+  closeShare,
+  handleToggle,
+  handleFireLevel,
+  handleRename,
+  requestDelete,
+  handleShare,
+  handleRemoveShare,
+} = useDeviceDetailController({
+  props,
+  notify: (payload) => emit('toast', payload),
+  requestConfirm: (payload) => emit('request-confirm', payload),
+  onRefresh: () => emit('refresh'),
+  onBack: () => emit('back'),
 })
-
-const displayFireLevel = computed(() => {
-  return props.device ? Number(props.device.fireLevel || 0) : 0
-})
-
-const isOwner = computed(() => {
-  const shortUid = props.user && props.user.uid ? props.user.uid.slice(0, 8) : ''
-  return props.device && props.device.ownerId === shortUid
-})
-
-const sharedUsers = computed(() => {
-  if (!props.device) {
-    return []
-  }
-
-  if (Array.isArray(props.device.sharedWithProfiles) && props.device.sharedWithProfiles.length) {
-    return props.device.sharedWithProfiles.map((profile) => ({
-      uid: profile.uid,
-      displayName: profile.displayName || profile.uid,
-    }))
-  }
-
-  return (props.device.sharedWith || []).map((uid) => ({
-    uid,
-    displayName: uid,
-  }))
-})
-
-const flameColor = computed(() => {
-  if (!displayIsOn.value) {
-    return '#334155'
-  }
-  if (displayFireLevel.value <= 30) {
-    return '#60a5fa'
-  }
-  if (displayFireLevel.value <= 60) {
-    return '#fb923c'
-  }
-  return '#f43f5e'
-})
-
-const glowColor = computed(() => {
-  if (displayFireLevel.value <= 30) {
-    return '#3b82f6'
-  }
-  if (displayFireLevel.value <= 60) {
-    return '#f97316'
-  }
-  return '#f43f5e'
-})
-
-const flameTransform = computed(() => {
-  const scale = displayIsOn.value ? 0.8 + (displayFireLevel.value / 100) * 0.7 : 0.8
-  return `scale(${scale})`
-})
-
-const progressRingSvg = computed(() => {
-  const percent = displayIsOn.value ? displayFireLevel.value : 0
-  const offset = 691 - (691 * percent) / 100
-  const strokeColor = displayIsOn.value ? flameColor.value : '#1e293b'
-  const svg = [
-    '<svg xmlns="http://www.w3.org/2000/svg" width="256" height="256" viewBox="0 0 256 256">',
-    '<g transform="rotate(-90 128 128)">',
-    '<circle cx="128" cy="128" r="110" stroke="rgba(255,255,255,0.05)" stroke-width="4" fill="transparent"/>',
-    `<circle cx="128" cy="128" r="110" stroke="${strokeColor}" stroke-width="4" fill="transparent" stroke-dasharray="691" stroke-dashoffset="${offset}"/>`,
-    '</g>',
-    '</svg>',
-  ].join('')
-  return `data:image/svg+xml;utf8,${encodeURIComponent(svg)}`
-})
-
-function emitToast(message, type) {
-  emit('toast', { message, type })
-}
-
-async function logOperation(event, type) {
-  if (!props.device) {
-    return
-  }
-  try {
-    await createDeviceLog(props.device.id, {
-      event,
-      type,
-    })
-  } catch (error) {
-    return
-  }
-}
-
-function openRename() {
-  newName.value = props.device ? props.device.name : ''
-  isRenameModalOpen.value = true
-}
-
-function handleToggle() {
-  if (!props.device || isPending.value) {
-    return
-  }
-
-  if (!props.device.isOn) {
-    emit('request-confirm', {
-      title: '安全确认',
-      message: '开启火源前，请确认厨房通风良好、灶台附近没有易燃物，并且现场有人看护。',
-      confirmText: '确认开启',
-      onConfirm: async () => {
-        isPending.value = true
-        try {
-          await updateDevice(props.device.id, { isOn: true })
-          await logOperation('远程开启火源', 'success')
-          emit('refresh')
-          emitToast('设备已开启', 'success')
-        } catch (error) {
-          emitToast(error.message || '操作失败，请重试', 'error')
-        } finally {
-          isPending.value = false
-        }
-      },
-    })
-    return
-  }
-
-  isPending.value = true
-  updateDevice(props.device.id, { isOn: false })
-    .then(async () => {
-      await logOperation('远程关闭火源', 'info')
-      emit('refresh')
-      emitToast('设备已关闭', 'info')
-    })
-    .catch((error) => {
-      emitToast(error.message || '操作失败，请重试', 'error')
-    })
-    .finally(() => {
-      isPending.value = false
-    })
-}
-
-async function handleFireLevel(level) {
-  if (!props.device || !displayIsOn.value || isPending.value) {
-    return
-  }
-  isPending.value = true
-  try {
-    await updateDevice(props.device.id, { fireLevel: level })
-    await logOperation(`调整火力至 ${level}%`, 'success')
-    emit('refresh')
-    emitToast(`火力已调整至 ${level}%`, 'success')
-  } catch (error) {
-    emitToast(error.message || '调节失败，请重试', 'error')
-  } finally {
-    isPending.value = false
-  }
-}
-
-async function handleRename() {
-  if (!props.device || isPending.value) {
-    return
-  }
-  const normalizedName = String(newName.value || '').trim()
-  if (!normalizedName) {
-    return
-  }
-  const duplicate = props.devices.some((item) => {
-    return item.id !== props.device.id && (item.name || '').trim().toLowerCase() === normalizedName.toLowerCase()
-  })
-  if (duplicate) {
-    emitToast('设备名称已存在，请更换一个名称', 'error')
-    return
-  }
-  isPending.value = true
-  try {
-    await updateDevice(props.device.id, { name: normalizedName })
-    await logOperation(`重命名设备为“${normalizedName}”`, 'info')
-    emit('refresh')
-    isRenameModalOpen.value = false
-    emitToast('设备重命名成功', 'success')
-  } catch (error) {
-    emitToast(error.message || '重命名失败，请重试', 'error')
-  } finally {
-    isPending.value = false
-  }
-}
-
-function requestDelete() {
-  if (!props.device || isPending.value) {
-    return
-  }
-  const currentDevice = props.device
-  emit('request-confirm', {
-    title: '删除设备',
-    message: `确定要删除设备“${currentDevice.name}”吗？此操作不可撤销。`,
-    confirmText: '确认删除',
-    onConfirm: async () => {
-      isPending.value = true
-      try {
-        await removeDevice(currentDevice.id)
-        emit('refresh')
-        emit('back')
-        emitToast('设备已删除', 'success')
-      } catch (error) {
-        emitToast(error.message || '删除失败，请重试', 'error')
-      } finally {
-        isPending.value = false
-      }
-    },
-  })
-}
-
-async function handleShare() {
-  if (!props.device || shareLoading.value) {
-    return
-  }
-  const uid = String(shareUid.value || '').trim()
-  if (!uid) {
-    return
-  }
-  if ((props.device.sharedWith || []).indexOf(uid) !== -1) {
-    emitToast('该用户已在共享列表中', 'info')
-    return
-  }
-  shareLoading.value = true
-  try {
-    await shareDevice(props.device.id, uid)
-    emit('refresh')
-    emitToast('设备共享成功', 'success')
-    shareUid.value = ''
-    isShareModalOpen.value = false
-  } catch (error) {
-    emitToast(error.message || '共享失败，请检查 UID', 'error')
-  } finally {
-    shareLoading.value = false
-  }
-}
-
-async function handleRemoveShare(uid) {
-  if (!props.device || shareLoading.value) {
-    return
-  }
-  shareLoading.value = true
-  try {
-    await unshareDevice(props.device.id, uid)
-    emit('refresh')
-    emitToast('已取消共享', 'success')
-  } catch (error) {
-    emitToast(error.message || '操作失败', 'error')
-  } finally {
-    shareLoading.value = false
-  }
-}
-
-watch(
-  () => props.device,
-  (nextDevice) => {
-    if (nextDevice) {
-      newName.value = nextDevice.name
-    }
-  },
-  { immediate: true }
-)
 </script>
 
 <style scoped>

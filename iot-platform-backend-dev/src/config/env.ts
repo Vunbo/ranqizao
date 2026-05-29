@@ -10,17 +10,17 @@ function resolveProjectRoot() {
 
 function loadEnvFile() {
   const projectRoot = resolveProjectRoot();
-  const nodeEnv = process.env.NODE_ENV || 'development';
-  const envFilePath = path.join(projectRoot, '.env.example');
+  const nodeEnv = process.env.NODE_ENV?.trim() || 'development';
+  const envFilePath = path.join(projectRoot, `.env.${nodeEnv}`);
 
   if (fs.existsSync(envFilePath)) {
     dotenv.config({
       path: envFilePath,
-      override: true,
+      override: false,
     });
   }
 
-  return nodeEnv;
+  return process.env.NODE_ENV?.trim() || nodeEnv;
 }
 
 function readString(name: string, fallback: string) {
@@ -55,8 +55,7 @@ function readCsv(value: string | undefined, fallback: string[]) {
 }
 
 const nodeEnv = loadEnvFile();
-const rawCorsOrigins =
-  process.env.CORS_ORIGINS || process.env.CORS_ORIGIN || '*';
+const rawCorsOrigins = process.env.CORS_ORIGINS || process.env.CORS_ORIGIN || '*';
 const corsOrigins = readCsv(rawCorsOrigins, ['*']);
 const corsAllowAll = corsOrigins.includes('*');
 
@@ -67,10 +66,7 @@ export const env = {
   port: readNumber('API_PORT', 3001),
   corsAllowAll,
   corsOrigins,
-  jwtSecret: readString(
-    'JWT_SECRET',
-    'ai-iot-safety-stove-control-local-secret'
-  ),
+  jwtSecret: readString('JWT_SECRET', 'ai-iot-safety-stove-control-local-secret'),
   opsJwtSecret: readString(
     'OPS_JWT_SECRET',
     readString('JWT_SECRET', 'ai-iot-safety-stove-control-local-secret')

@@ -1,14 +1,6 @@
-import { query } from '../../../database/client';
 import { HttpError } from '../../../shared/http';
-
-function normalizePage(value: unknown, fallback: number) {
-  const parsed = Number(value);
-  if (!Number.isFinite(parsed) || parsed <= 0) {
-    return fallback;
-  }
-
-  return Math.floor(parsed);
-}
+import { normalizePage, normalizePageSize } from '../common/pagination';
+import { getOpsCommandRow, listOpsCommandRows } from './command-repository';
 
 export async function listOpsCommands(input: {
   page?: unknown;
@@ -18,37 +10,12 @@ export async function listOpsCommands(input: {
   status?: unknown;
 }) {
   const page = normalizePage(input.page, 1);
-  const pageSize = Math.min(normalizePage(input.pageSize, 20), 100);
+  const pageSize = normalizePageSize(input.pageSize, 20);
   const search = String(input.search || '').trim().toLowerCase();
   const type = String(input.type || '').trim();
   const status = String(input.status || '').trim();
 
-  const result = await query<{
-    id: string;
-    deviceSn: string;
-    operatorName: string;
-    commandType: string;
-    status: string;
-    failureReason: string | null;
-    startedAt: string;
-    finishedAt: string | null;
-  }>(
-    `
-      SELECT
-        id,
-        device_sn AS "deviceSn",
-        operator_name AS "operatorName",
-        command_type AS "commandType",
-        status,
-        failure_reason AS "failureReason",
-        started_at AS "startedAt",
-        finished_at AS "finishedAt"
-      FROM command_audit
-      ORDER BY created_at DESC
-    `
-  );
-
-  const filtered = result.rows.filter((row) => {
+  const filtered = (await listOpsCommandRows()).filter((row) => {
     const matchesSearch = !search
       || row.id.toLowerCase().includes(search)
       || row.deviceSn.toLowerCase().includes(search)
@@ -72,29 +39,7 @@ export async function listOpsCommands(input: {
 }
 
 export async function getOpsCommand(commandId: string) {
-  const result = await query(
-    `
-      SELECT
-        id,
-        device_id AS "deviceId",
-        device_sn AS "deviceSn",
-        operator_type AS "operatorType",
-        operator_name AS "operatorName",
-        command_type AS "commandType",
-        request_payload AS "requestPayload",
-        response_payload AS "responsePayload",
-        status,
-        failure_reason AS "failureReason",
-        started_at AS "startedAt",
-        finished_at AS "finishedAt"
-      FROM command_audit
-      WHERE id = $1
-      LIMIT 1
-    `,
-    [commandId]
-  );
-
-  const item = result.rows[0] || null;
+  const item = await getOpsCommandRow(commandId);
   if (!item) {
     throw new HttpError(404, '审计记录不存在。');
   }

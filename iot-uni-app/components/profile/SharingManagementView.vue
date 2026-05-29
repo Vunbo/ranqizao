@@ -264,15 +264,9 @@
 </template>
 
 <script setup>
-import { computed, ref } from 'vue'
 import AppIcon from '../ui/AppIcon.vue'
 import CardBox from '../ui/CardBox.vue'
-import {
-  addHomeMember,
-  removeHomeMembers,
-  shareDevice,
-  unshareDevice,
-} from '../../services/gateway'
+import { useSharingManagementController } from '../../services/features/profile/sharing-management-controller'
 
 const props = defineProps({
   devices: {
@@ -290,199 +284,33 @@ const props = defineProps({
 })
 
 const emit = defineEmits(['back', 'toast', 'refresh'])
-
-const mainTab = ref('my')
-const subTab = ref('home')
-const isAddMemberModalOpen = ref(false)
-const isRemoveMemberModalOpen = ref(false)
-const memberUidInput = ref('')
-const selectedUidsToRemove = ref([])
-const targetResource = ref(null)
-
-const shortUid = computed(() => {
-  return props.user && props.user.uid ? props.user.uid.slice(0, 8) : ''
+const {
+  mainTab,
+  subTab,
+  isAddMemberModalOpen,
+  isRemoveMemberModalOpen,
+  memberUidInput,
+  selectedUidsToRemove,
+  targetResource,
+  ownerLabel,
+  myHomes,
+  myDevices,
+  friendHomes,
+  friendDevices,
+  getOwnerDisplayName,
+  getHomeMemberDisplayName,
+  getDeviceMemberDisplayName,
+  getTargetMemberDisplayName,
+  openAddMember,
+  openRemoveMember,
+  confirmAddMember,
+  toggleUid,
+  confirmRemoveMember,
+} = useSharingManagementController({
+  props,
+  notify: (payload) => emit('toast', payload),
+  onRefresh: () => emit('refresh'),
 })
-
-const ownerLabel = computed(() => {
-  if (props.user && props.user.displayName) {
-    return props.user.displayName
-  }
-  return shortUid.value || '--------'
-})
-
-const myHomes = computed(() => {
-  return props.homes.filter((home) => home.ownerId === shortUid.value)
-})
-
-const myDevices = computed(() => {
-  return props.devices.filter((device) => device.ownerId === shortUid.value)
-})
-
-const friendHomes = computed(() => {
-  return props.homes.filter((home) => {
-    return home.ownerId !== shortUid.value && (home.members || []).includes(shortUid.value)
-  })
-})
-
-const friendDevices = computed(() => {
-  return props.devices.filter((device) => {
-    return device.ownerId !== shortUid.value && (device.sharedWith || []).includes(shortUid.value)
-  })
-})
-
-function getOwnerDisplayName(resource) {
-  if (resource && resource.ownerDisplayName) {
-    return resource.ownerDisplayName
-  }
-  return resource && resource.ownerId ? resource.ownerId : '--------'
-}
-
-function getHomeMemberDisplayName(home, uid) {
-  const memberProfiles = home && Array.isArray(home.memberProfiles) ? home.memberProfiles : []
-  const matchedProfile = memberProfiles.find((profile) => profile && profile.uid === uid)
-  return matchedProfile && matchedProfile.displayName ? matchedProfile.displayName : uid
-}
-
-function getDeviceMemberDisplayName(device, uid) {
-  const sharedProfiles = device && Array.isArray(device.sharedWithProfiles) ? device.sharedWithProfiles : []
-  const matchedProfile = sharedProfiles.find((profile) => profile && profile.uid === uid)
-  return matchedProfile && matchedProfile.displayName ? matchedProfile.displayName : uid
-}
-
-function getTargetMemberDisplayName(uid) {
-  if (!targetResource.value || !targetResource.value.displayMap) {
-    return uid
-  }
-  return targetResource.value.displayMap[uid] || uid
-}
-
-function buildDisplayMap(currentMembers, resolver) {
-  return currentMembers.reduce((result, uid) => {
-    result[uid] = resolver(uid)
-    return result
-  }, {})
-}
-
-function openAddMember(type, id, currentMembers) {
-  targetResource.value = {
-    type,
-    id,
-    currentMembers,
-  }
-  memberUidInput.value = ''
-  isAddMemberModalOpen.value = true
-}
-
-function openRemoveMember(type, id, currentMembers) {
-  if (!currentMembers.length) {
-    emit('toast', {
-      message: '暂无可移除的成员',
-      type: 'info',
-    })
-    return
-  }
-  targetResource.value = {
-    type,
-    id,
-    currentMembers,
-    displayMap:
-      type === 'home'
-        ? buildDisplayMap(
-            currentMembers,
-            (uid) => getHomeMemberDisplayName(myHomes.value.find((home) => home.id === id), uid)
-          )
-        : buildDisplayMap(
-            currentMembers,
-            (uid) => getDeviceMemberDisplayName(myDevices.value.find((device) => device.id === id), uid)
-          ),
-  }
-  selectedUidsToRemove.value = []
-  isRemoveMemberModalOpen.value = true
-}
-
-async function confirmAddMember() {
-  if (!targetResource.value) {
-    return
-  }
-  const uid = String(memberUidInput.value || '').trim()
-  if (!uid) {
-    return
-  }
-  if (uid === shortUid.value) {
-    emit('toast', {
-      message: '不能添加自己',
-      type: 'error',
-    })
-    return
-  }
-  if (uid.length !== 8) {
-    emit('toast', {
-      message: '请输入 8 位 UID',
-      type: 'error',
-    })
-    return
-  }
-  if (targetResource.value.currentMembers.includes(uid)) {
-    emit('toast', {
-      message: '该成员已存在',
-      type: 'info',
-    })
-    return
-  }
-
-  try {
-    if (targetResource.value.type === 'home') {
-      await addHomeMember(targetResource.value.id, uid)
-    } else {
-      await shareDevice(targetResource.value.id, uid)
-    }
-    emit('refresh')
-    emit('toast', {
-      message: targetResource.value.type === 'home' ? '家庭成员添加成功' : '设备共享成功',
-      type: 'success',
-    })
-    isAddMemberModalOpen.value = false
-  } catch (requestError) {
-    emit('toast', {
-      message: requestError.message || '添加失败',
-      type: 'error',
-    })
-  }
-}
-
-function toggleUid(uid) {
-  if (selectedUidsToRemove.value.includes(uid)) {
-    selectedUidsToRemove.value = selectedUidsToRemove.value.filter((item) => item !== uid)
-    return
-  }
-  selectedUidsToRemove.value = selectedUidsToRemove.value.concat(uid)
-}
-
-async function confirmRemoveMember() {
-  if (!targetResource.value || !selectedUidsToRemove.value.length) {
-    return
-  }
-  try {
-    if (targetResource.value.type === 'home') {
-      await removeHomeMembers(targetResource.value.id, selectedUidsToRemove.value.slice())
-    } else {
-      await Promise.all(
-        selectedUidsToRemove.value.map((uid) => unshareDevice(targetResource.value.id, uid))
-      )
-    }
-    emit('refresh')
-    emit('toast', {
-      message: targetResource.value.type === 'home' ? '家庭成员移除成功' : '已取消共享',
-      type: 'success',
-    })
-    isRemoveMemberModalOpen.value = false
-  } catch (requestError) {
-    emit('toast', {
-      message: requestError.message || '操作失败',
-      type: 'error',
-    })
-  }
-}
 </script>
 
 <style scoped>

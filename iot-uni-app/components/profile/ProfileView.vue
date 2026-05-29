@@ -120,7 +120,9 @@
       <view v-if="isEditNameModalOpen" class="modal-mask" @tap="closeEditName()">
         <view class="profile-view__modal" @tap.stop>
           <text class="profile-view__modal-title">修改名称</text>
-          <text class="profile-view__modal-desc">名称不能为空，修改后将同步展示到成员列表。</text>
+          <text class="profile-view__modal-desc">
+            名称不能为空，修改后会同步显示到成员列表中。
+          </text>
           <view class="profile-view__input">
             <input
               v-model="editDisplayName"
@@ -146,7 +148,6 @@
 </template>
 
 <script setup>
-import { computed, ref } from 'vue'
 import AppIcon from '../ui/AppIcon.vue'
 import CardBox from '../ui/CardBox.vue'
 import DeviceManagementView from '../device/DeviceManagementView.vue'
@@ -154,7 +155,7 @@ import AccountManagementView from './AccountManagementView.vue'
 import NotificationSettingsView from './NotificationSettingsView.vue'
 import HomeManagementView from './HomeManagementView.vue'
 import SharingManagementView from './SharingManagementView.vue'
-import { updateCurrentUserProfile } from '../../services/gateway'
+import { useProfileViewController } from '../../services/features/profile/profile-view-controller'
 
 const props = defineProps({
   user: {
@@ -184,152 +185,25 @@ const emit = defineEmits([
   'logout',
 ])
 
-const isEditNameModalOpen = ref(false)
-const editDisplayName = ref('')
-const isUpdatingDisplayName = ref(false)
-
-const shortUid = computed(() => {
-  return props.user && props.user.uid ? props.user.uid.slice(0, 8) : ''
+const {
+  isEditNameModalOpen,
+  editDisplayName,
+  isUpdatingDisplayName,
+  shortUid,
+  displayName,
+  avatarUrl,
+  settingsItems,
+  supportItems,
+  copyUid,
+  openEditName,
+  closeEditName,
+  handleUpdateDisplayName,
+} = useProfileViewController({
+  props,
+  notify: (payload) => emit('toast', payload),
+  onUserUpdated: (nextUser) => emit('user-updated', nextUser),
+  onRefresh: () => emit('refresh'),
 })
-
-const displayName = computed(() => {
-  if (props.user && props.user.displayName) {
-    return props.user.displayName
-  }
-  return shortUid.value || '用户'
-})
-
-const avatarUrl = computed(() => {
-  if (props.user && props.user.photoURL) {
-    return props.user.photoURL
-  }
-  const seed = shortUid.value || 'user'
-  return `https://picsum.photos/seed/${seed}/200`
-})
-
-const sharedUsersCount = computed(() => {
-  return props.devices
-    .filter((device) => device.ownerId === shortUid.value)
-    .reduce((count, device) => count + ((device.sharedWith || []).length || 0), 0)
-})
-
-const settingsItems = computed(() => {
-  return [
-    {
-      id: 'account',
-      icon: 'shield',
-      label: '账号管理',
-      extra: '绑定与安全',
-    },
-    {
-      id: 'devices',
-      icon: 'settings',
-      label: '设备管理',
-      extra: `${props.devices.length} 台设备`,
-    },
-    {
-      id: 'homes',
-      icon: 'home',
-      label: '家庭管理',
-      extra: `${props.homes.length} 个家庭`,
-    },
-    {
-      id: 'sharing',
-      icon: 'shield',
-      label: '共享管理',
-      extra: `${sharedUsersCount.value} 位成员`,
-    },
-    {
-      id: 'notifications',
-      icon: 'bell',
-      label: '消息通知',
-      extra: '已开启',
-    },
-  ]
-})
-
-const supportItems = computed(() => {
-  return [
-    { icon: 'help', label: '帮助中心', extra: '' },
-    { icon: 'message', label: '意见反馈', extra: '' },
-    { icon: 'info', label: '关于我们', extra: 'v2.1.0' },
-  ]
-})
-
-function copyUid() {
-  if (!shortUid.value) {
-    return
-  }
-  uni.setClipboardData({
-    data: shortUid.value,
-    success: () => {
-      emit('toast', {
-        message: 'UID 已复制到剪贴板',
-        type: 'success',
-      })
-    },
-    fail: () => {
-      emit('toast', {
-        message: '复制失败，请稍后重试',
-        type: 'error',
-      })
-    },
-  })
-}
-
-function openEditName() {
-  editDisplayName.value = displayName.value
-  isEditNameModalOpen.value = true
-}
-
-function closeEditName(force = false) {
-  if (isUpdatingDisplayName.value && !force) {
-    return
-  }
-  isEditNameModalOpen.value = false
-}
-
-async function handleUpdateDisplayName() {
-  const normalizedName = String(editDisplayName.value || '').trim()
-
-  if (!normalizedName) {
-    emit('toast', {
-      message: '名称不能为空',
-      type: 'error',
-    })
-    return
-  }
-
-  if (!props.user || isUpdatingDisplayName.value) {
-    return
-  }
-
-  if (normalizedName === displayName.value) {
-    closeEditName()
-    return
-  }
-
-  isUpdatingDisplayName.value = true
-  try {
-    const nextUser = await updateCurrentUserProfile({
-      displayName: normalizedName,
-    })
-    emit('user-updated', nextUser)
-    emit('refresh')
-    emit('toast', {
-      message: '名称修改成功',
-      type: 'success',
-    })
-    closeEditName(true)
-  } catch (error) {
-    emit('toast', {
-      message: error.message || '名称修改失败',
-      type: 'error',
-    })
-  } finally {
-    isUpdatingDisplayName.value = false
-  }
-}
 </script>
 
 <style scoped>

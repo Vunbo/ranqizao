@@ -95,10 +95,9 @@
 </template>
 
 <script setup>
-import { computed, ref } from 'vue'
 import AppIcon from '../ui/AppIcon.vue'
 import CardBox from '../ui/CardBox.vue'
-import { removeDevice, updateDevice } from '../../services/gateway'
+import { useDeviceManagementController } from '../../services/features/device/device-management-controller'
 
 const emit = defineEmits(['back', 'toast', 'refresh', 'request-confirm'])
 
@@ -113,105 +112,24 @@ const props = defineProps({
   },
 })
 
-const searchQuery = ref('')
-const filterTab = ref('all')
-const isRenaming = ref('')
-const newName = ref('')
-
-const filterTabs = [
-  { id: 'all', label: '全部' },
-  { id: 'mine', label: '我的' },
-  { id: 'shared', label: '共享' },
-]
-
-const shortUid = computed(() => {
-  return props.user && props.user.uid ? props.user.uid.slice(0, 8) : ''
+const {
+  searchQuery,
+  filterTab,
+  isRenaming,
+  newName,
+  filterTabs,
+  filteredDevices,
+  isOwner,
+  startRename,
+  cancelRename,
+  handleRename,
+  handleDelete,
+} = useDeviceManagementController({
+  props,
+  notify: (payload) => emit('toast', payload),
+  requestConfirm: (payload) => emit('request-confirm', payload),
+  onRefresh: () => emit('refresh'),
 })
-
-const filteredDevices = computed(() => {
-  return props.devices.filter((device) => {
-    const matchesSearch = (device.name || '').toLowerCase().includes(searchQuery.value.toLowerCase())
-    const owner = device.ownerId === shortUid.value
-    if (filterTab.value === 'mine') {
-      return matchesSearch && owner
-    }
-    if (filterTab.value === 'shared') {
-      return matchesSearch && !owner
-    }
-    return matchesSearch
-  })
-})
-
-function isOwner(device) {
-  return device.ownerId === shortUid.value
-}
-
-function startRename(device) {
-  isRenaming.value = device.id
-  newName.value = device.name
-}
-
-function cancelRename() {
-  isRenaming.value = ''
-  newName.value = ''
-}
-
-async function handleRename(device) {
-  const normalizedName = String(newName.value || '').trim()
-  if (!normalizedName) {
-    return
-  }
-
-  const hasDuplicate = props.devices.some((item) => {
-    return item.id !== device.id && (item.name || '').trim().toLowerCase() === normalizedName.toLowerCase()
-  })
-
-  if (hasDuplicate) {
-    emit('toast', {
-      message: '设备名称已存在，请更换一个名称',
-      type: 'error',
-    })
-    return
-  }
-
-  try {
-    await updateDevice(device.id, { name: normalizedName })
-    emit('refresh')
-    emit('toast', {
-      message: '设备重命名成功',
-      type: 'success',
-    })
-    cancelRename()
-  } catch (error) {
-    emit('toast', {
-      message: error.message || '重命名失败',
-      type: 'error',
-    })
-  }
-}
-
-function handleDelete(device) {
-  emit('request-confirm', {
-    title: '删除设备',
-    message: `确定要删除设备“${device.name}”吗？此操作不可撤销。`,
-    confirmText: '确认删除',
-    onConfirm: async () => {
-      try {
-        await removeDevice(device.id)
-        emit('refresh')
-        emit('toast', {
-          message: '设备已删除',
-          type: 'success',
-        })
-      } catch (error) {
-        emit('toast', {
-          message: error.message || '删除失败',
-          type: 'error',
-        })
-      }
-    },
-  })
-}
 </script>
 
 <style scoped>

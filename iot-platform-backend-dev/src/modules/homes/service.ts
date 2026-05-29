@@ -1,107 +1,22 @@
-import { randomUUID } from 'crypto';
-import { query } from '../../database/client';
 import { HttpError } from '../../shared/http';
-
-interface HomeAccessRow {
-  id: string;
-  ownerId: string;
-}
-
-async function getAccessibleHome(homeId: string, userId: string) {
-  const result = await query<HomeAccessRow>(
-    `
-      SELECT
-        h.id,
-        h.owner_id AS "ownerId"
-      FROM homes h
-      WHERE h.id = $1
-        AND (
-          h.owner_id = $2
-          OR EXISTS (
-            SELECT 1
-            FROM home_members hm
-            WHERE hm.home_id = h.id AND hm.user_id = $2
-          )
-        )
-      LIMIT 1
-    `,
-    [homeId, userId]
-  );
-
-  const home = result.rows[0] || null;
-  return { home, isOwner: home?.ownerId === userId };
-}
-
-async function ensureTargetUserExists(userId: string) {
-  const userExists = await query<{ short_uid: string }>(
-    'SELECT short_uid FROM users WHERE short_uid = $1 LIMIT 1',
-    [userId]
-  );
-
-  if (!userExists.rowCount) {
-    throw new HttpError(404, '目标用户不存在。');
-  }
-}
+import {
+  addHomeMemberLink,
+  createHomeRecord,
+  deleteHomeRecord,
+  removeHomeMemberLinks,
+  replaceHomeDeviceLinks,
+} from './home-mutations';
+import {
+  ensureTargetUserExists,
+  findDuplicateHomeName,
+  getAccessibleHome,
+  listHomeLinkedDeviceIds,
+  listOwnedDeviceIds,
+  listVisibleHomes,
+} from './home-repository';
 
 export async function listHomes(uid: string) {
-  const result = await query(
-    `
-      SELECT
-        h.id,
-        h.name,
-        h.owner_id AS "ownerId",
-        owner_user.display_name AS "ownerDisplayName",
-        h.created_at AS "createdAt",
-        COALESCE(
-          ARRAY(
-            SELECT hm.user_id
-            FROM home_members hm
-            WHERE hm.home_id = h.id
-            ORDER BY hm.user_id
-          ),
-          ARRAY[]::TEXT[]
-        ) AS members,
-        COALESCE(
-          (
-            SELECT JSONB_AGG(
-              JSONB_BUILD_OBJECT(
-                'uid', member_user.short_uid,
-                'displayName', member_user.display_name
-              )
-              ORDER BY hm.created_at
-            )
-            FROM home_members hm
-            INNER JOIN users member_user
-              ON member_user.short_uid = hm.user_id
-            WHERE hm.home_id = h.id
-          ),
-          '[]'::jsonb
-        ) AS "memberProfiles",
-        COALESCE(
-          ARRAY(
-            SELECT hdl.device_id
-            FROM home_device_links hdl
-            WHERE hdl.home_id = h.id
-            ORDER BY hdl.created_at
-          ),
-          ARRAY[]::TEXT[]
-        ) AS "deviceIds"
-      FROM homes h
-      INNER JOIN users owner_user
-        ON owner_user.short_uid = h.owner_id
-      WHERE
-        h.owner_id = $1
-        OR EXISTS (
-          SELECT 1
-          FROM home_members hm
-          WHERE hm.home_id = h.id AND hm.user_id = $1
-        )
-      ORDER BY h.created_at DESC
-    `,
-    [uid]
-  );
-
-  return result.rows;
+  return listVisibleHomes(uid);
 }
 
 export async function createHome(input: { ownerId: string; name: string }) {
@@ -112,35 +27,11 @@ export async function createHome(input: { ownerId: string; name: string }) {
     throw new HttpError(400, '家庭名称不能为空。');
   }
 
-  const duplicate = await query<{ id: string }>(
-    'SELECT id FROM homes WHERE owner_id = $1 AND name = $2 LIMIT 1',
-    [ownerId, name]
-  );
-
-  if (duplicate.rowCount) {
+  if (await findDuplicateHomeName(ownerId, name)) {
     throw new HttpError(409, '当前账号下已存在同名家庭。');
   }
 
-  const result = await query(
-    `
-      INSERT INTO homes (id, name, owner_id)
-      VALUES ($1, $2, $3)
-      RETURNING
-        id,
-        name,
-        owner_id AS "ownerId",
-        created_at AS "createdAt"
-    `,
-    [randomUUID(), name, ownerId]
-  );
-
-  return {
-    ...result.rows[0],
-    ownerDisplayName: ownerId,
-    members: [],
-    memberProfiles: [],
-    deviceIds: [],
-  };
+  return createHomeRecord({ ownerId, name });
 }
 
 export async function updateHomeDeviceLinks(input: {
@@ -160,45 +51,19 @@ export async function updateHomeDeviceLinks(input: {
   }
 
   const nextDeviceIds = [...new Set(input.deviceIds.map((item: unknown) => String(item)))];
-  const ownedDeviceRows = await query<{ id: string }>(
-    'SELECT id FROM devices WHERE owner_id = $1',
-    [userId]
-  );
-  const ownedDeviceIds = new Set(ownedDeviceRows.rows.map((row) => row.id));
+  const ownedDeviceIds = new Set(await listOwnedDeviceIds(userId));
 
   if (nextDeviceIds.some((deviceId) => !ownedDeviceIds.has(deviceId))) {
     throw new HttpError(400, '只能关联自己名下的设备。');
   }
 
-  const currentRows = await query<{ deviceId: string }>(
-    `
-      SELECT device_id AS "deviceId"
-      FROM home_device_links
-      WHERE home_id = $1
-    `,
-    [homeId]
-  );
-  const currentIds = currentRows.rows.map((row) => row.deviceId);
-  const removedIds = currentIds.filter((id) => !nextDeviceIds.includes(id));
-  const addedIds = nextDeviceIds.filter((id) => !currentIds.includes(id));
+  const currentIds = await listHomeLinkedDeviceIds(homeId);
 
-  if (removedIds.length) {
-    await query(
-      'DELETE FROM home_device_links WHERE home_id = $1 AND device_id = ANY($2::text[])',
-      [homeId, removedIds]
-    );
-  }
-
-  if (addedIds.length) {
-    await query(
-      `
-        INSERT INTO home_device_links (home_id, device_id)
-        SELECT $1, UNNEST($2::text[])
-        ON CONFLICT (home_id, device_id) DO NOTHING
-      `,
-      [homeId, addedIds]
-    );
-  }
+  await replaceHomeDeviceLinks({
+    homeId,
+    currentIds,
+    nextIds: nextDeviceIds,
+  });
 
   return { ok: true };
 }
@@ -226,14 +91,7 @@ export async function addHomeMember(input: {
 
   await ensureTargetUserExists(targetUserId);
 
-  await query(
-    `
-      INSERT INTO home_members (home_id, user_id)
-      VALUES ($1, $2)
-      ON CONFLICT (home_id, user_id) DO NOTHING
-    `,
-    [homeId, targetUserId]
-  );
+  await addHomeMemberLink(homeId, targetUserId);
 
   return { ok: true };
 }
@@ -259,10 +117,7 @@ export async function removeHomeMembers(input: {
     throw new HttpError(400, '请选择要移除的成员。');
   }
 
-  await query(
-    'DELETE FROM home_members WHERE home_id = $1 AND user_id = ANY($2::text[])',
-    [homeId, targetUserIds]
-  );
+  await removeHomeMemberLinks(homeId, targetUserIds);
 
   return { ok: true };
 }
@@ -274,7 +129,7 @@ export async function deleteHome(input: { userId: string; homeId: string }) {
     throw new HttpError(404, '家庭不存在或无权限删除。');
   }
 
-  await query('DELETE FROM homes WHERE id = $1', [input.homeId]);
+  await deleteHomeRecord(input.homeId);
 
   return { ok: true };
 }

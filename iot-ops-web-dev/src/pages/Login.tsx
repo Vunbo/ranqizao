@@ -2,6 +2,8 @@ import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Flame, Lock, User, ShieldCheck } from 'lucide-react';
 import { api } from '../lib/api';
+import { persistAuthSession } from '../lib/auth';
+import { OPS_ROUTES } from '../router/routes';
 import type { OpsAuthUser } from '../types';
 
 export const Login = () => {
@@ -22,9 +24,11 @@ export const Login = () => {
         password,
       });
 
-      localStorage.setItem('token', result.token);
-      localStorage.setItem('user', JSON.stringify(result.user));
-      navigate('/dashboard');
+      persistAuthSession({
+        token: result.token,
+        user: result.user,
+      });
+      navigate(OPS_ROUTES.dashboard);
     } catch (requestError) {
       setError(requestError instanceof Error ? requestError.message : '登录失败，请稍后重试');
     } finally {
