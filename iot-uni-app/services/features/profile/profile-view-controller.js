@@ -1,5 +1,6 @@
 import { computed, ref } from 'vue'
 import { updateCurrentUserProfile } from '../account'
+import { getMerchantSummary } from '../merchant'
 import {
   createCallbackTrigger,
   createNotifier,
@@ -23,6 +24,8 @@ export function useProfileViewController(options) {
   const isEditNameModalOpen = ref(false)
   const editDisplayName = ref('')
   const isUpdatingDisplayName = ref(false)
+  const isLoadingMerchantAccess = ref(false)
+  const merchantSummary = ref(null)
 
   const shortUid = computed(() => {
     return getUserShortUid(props.user)
@@ -90,9 +93,62 @@ export function useProfileViewController(options) {
     ]
   })
 
+  const canEnterMerchantPanel = computed(() => {
+    return Boolean(merchantSummary.value && merchantSummary.value.canEnterPanel)
+  })
+
+  const moreItems = computed(() => {
+    const items = [
+      {
+        id: 'merchant',
+        icon: 'globe',
+        iconColor: '#3b82f6',
+        label: '推广 / 入驻',
+        extra: '合作与商户',
+      },
+    ]
+
+    if (canEnterMerchantPanel.value) {
+      items.push({
+        id: 'merchant-panel',
+        icon: 'home',
+        iconColor: '#2563eb',
+        label: '进入商户面板',
+        extra: '管理商户信息',
+      })
+    }
+
+    return items
+  })
+
   const notifyUser = createNotifier(notify)
   const emitUserUpdated = createCallbackTrigger(onUserUpdated)
   const triggerRefresh = createCallbackTrigger(onRefresh)
+
+  async function loadMerchantAccess(options = {}) {
+    const { silent = true } = options
+
+    if (isLoadingMerchantAccess.value) {
+      return
+    }
+
+    isLoadingMerchantAccess.value = true
+
+    try {
+      merchantSummary.value = await getMerchantSummary()
+    } catch (error) {
+      merchantSummary.value = null
+
+      if (!silent) {
+        notifyUser({
+          message: formatErrorMessage(error, '商户状态加载失败'),
+          type: 'error',
+        })
+      }
+    } finally {
+      isLoadingMerchantAccess.value = false
+    }
+  }
 
   function copyUid() {
     if (!shortUid.value) {
@@ -182,6 +238,8 @@ export function useProfileViewController(options) {
     avatarUrl,
     settingsItems,
     supportItems,
+    moreItems,
+    loadMerchantAccess,
     copyUid,
     openEditName,
     closeEditName,

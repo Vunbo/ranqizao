@@ -44,6 +44,18 @@
       @request-confirm="emit('request-confirm', $event)"
     />
 
+    <merchant-landing-view
+      v-else-if="activeSubView === 'merchant'"
+      @back="emit('change-sub-view', 'main')"
+      @toast="emit('toast', $event)"
+    />
+
+    <merchant-panel-view
+      v-else-if="activeSubView === 'merchant-panel'"
+      @back="emit('change-sub-view', 'main')"
+      @toast="emit('toast', $event)"
+    />
+
     <view v-else>
       <view class="profile-view__hero">
         <view class="profile-view__avatar-wrap">
@@ -76,7 +88,7 @@
             <view class="profile-view__setting-row">
               <view class="profile-view__setting-left">
                 <view class="profile-view__setting-icon">
-                  <app-icon :name="item.icon" :size="16" color="#475569" />
+                  <app-icon :name="item.icon" :size="16" :color="item.iconColor || '#475569'" />
                 </view>
                 <text class="profile-view__setting-label">{{ item.label }}</text>
               </view>
@@ -100,7 +112,32 @@
             <view class="profile-view__setting-row">
               <view class="profile-view__setting-left">
                 <view class="profile-view__setting-icon">
-                  <app-icon :name="item.icon" :size="16" color="#475569" />
+                  <app-icon :name="item.icon" :size="16" :color="item.iconColor || '#475569'" />
+                </view>
+                <text class="profile-view__setting-label">{{ item.label }}</text>
+              </view>
+              <view class="profile-view__setting-right">
+                <text class="profile-view__setting-extra">{{ item.extra }}</text>
+                <app-icon name="chevron" :size="14" color="#cbd5e1" />
+              </view>
+            </view>
+          </card-box>
+        </view>
+      </view>
+
+      <view class="profile-view__section">
+        <text class="section-kicker">更多</text>
+        <view class="profile-view__card-list">
+          <card-box
+            v-for="item in moreItems"
+            :key="item.id"
+            custom-style="padding:16px; margin-top:12px;"
+            @tap="emit('change-sub-view', item.id)"
+          >
+            <view class="profile-view__setting-row">
+              <view class="profile-view__setting-left">
+                <view class="profile-view__setting-icon">
+                  <app-icon :name="item.icon" :size="16" :color="item.iconColor || '#475569'" />
                 </view>
                 <text class="profile-view__setting-label">{{ item.label }}</text>
               </view>
@@ -121,7 +158,7 @@
         <view class="profile-view__modal" @tap.stop>
           <text class="profile-view__modal-title">修改名称</text>
           <text class="profile-view__modal-desc">
-            名称不能为空，修改后会同步显示到成员列表中。
+            名称不能为空，修改后将同步展示到成员列表。
           </text>
           <view class="profile-view__input">
             <input
@@ -148,10 +185,13 @@
 </template>
 
 <script setup>
+import { onMounted, watch } from 'vue'
 import AppIcon from '../ui/AppIcon.vue'
 import CardBox from '../ui/CardBox.vue'
 import DeviceManagementView from '../device/DeviceManagementView.vue'
 import AccountManagementView from './AccountManagementView.vue'
+import MerchantLandingView from './MerchantLandingView.vue'
+import MerchantPanelView from './MerchantPanelView.vue'
 import NotificationSettingsView from './NotificationSettingsView.vue'
 import HomeManagementView from './HomeManagementView.vue'
 import SharingManagementView from './SharingManagementView.vue'
@@ -194,6 +234,8 @@ const {
   avatarUrl,
   settingsItems,
   supportItems,
+  moreItems,
+  loadMerchantAccess,
   copyUid,
   openEditName,
   closeEditName,
@@ -204,6 +246,19 @@ const {
   onUserUpdated: (nextUser) => emit('user-updated', nextUser),
   onRefresh: () => emit('refresh'),
 })
+
+onMounted(() => {
+  void loadMerchantAccess()
+})
+
+watch(
+  () => props.activeSubView,
+  (nextValue) => {
+    if (nextValue === 'main' || nextValue === 'merchant' || nextValue === 'merchant-panel') {
+      void loadMerchantAccess()
+    }
+  },
+)
 </script>
 
 <style scoped>

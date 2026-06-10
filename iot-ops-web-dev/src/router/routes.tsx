@@ -5,6 +5,7 @@ import {
   LayoutDashboard,
   Settings,
   ShieldAlert,
+  Store,
   Users,
 } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
@@ -13,6 +14,7 @@ import { CommandAuditPage } from '../features/audits';
 import { SystemConfigPage } from '../features/configs';
 import { DashboardPage } from '../features/dashboard';
 import { DeviceDetailPage, DeviceListPage } from '../features/devices';
+import { MerchantManagementPage } from '../features/merchant';
 import { UserManagementPage } from '../features/users';
 import { Login } from '../pages/Login';
 
@@ -26,6 +28,7 @@ export const OPS_ROUTES = {
   commands: '/commands',
   users: '/users',
   configs: '/configs',
+  merchant: '/merchant',
 } as const;
 
 export interface AppRouteConfig {
@@ -81,6 +84,11 @@ export const APP_ROUTES: AppRouteConfig[] = [
     element: <SystemConfigPage />,
     protected: true,
   },
+  {
+    path: OPS_ROUTES.merchant,
+    element: <MerchantManagementPage />,
+    protected: true,
+  },
 ];
 
 export const OPS_NAV_ITEMS: NavRouteConfig[] = [
@@ -90,4 +98,5 @@ export const OPS_NAV_ITEMS: NavRouteConfig[] = [
   { id: 'commands', label: '控制审计', icon: History, path: OPS_ROUTES.commands },
   { id: 'users', label: '用户与共享', icon: Users, path: OPS_ROUTES.users },
   { id: 'configs', label: '系统配置', icon: Settings, path: OPS_ROUTES.configs },
+  { id: 'merchant', label: '推广 / 入驻', icon: Store, path: OPS_ROUTES.merchant },
 ];

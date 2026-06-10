@@ -5,15 +5,26 @@ import { query } from '../database/client';
 import { authRouter } from '../modules/auth/router';
 import { devicesRouter } from '../modules/devices/router';
 import { homesRouter } from '../modules/homes/router';
+import { merchantRouter } from '../modules/merchant/router';
 import { opsAuthRouter } from '../modules/ops/auth/router';
 import { opsAlertsRouter } from '../modules/ops/alerts/router';
 import { opsCommandsRouter } from '../modules/ops/commands/router';
 import { opsConfigsRouter } from '../modules/ops/configs/router';
 import { opsDashboardRouter } from '../modules/ops/dashboard/router';
 import { opsDevicesRouter } from '../modules/ops/devices/router';
+import { opsMerchantRouter } from '../modules/ops/merchant/router';
 import { opsSharesRouter } from '../modules/ops/shares/router';
 import { opsUsersRouter } from '../modules/ops/users/router';
 import { asyncHandler, errorHandler } from '../shared/http';
+
+function isLocalDevOrigin(origin: string) {
+  try {
+    const { hostname } = new URL(origin);
+    return hostname === 'localhost' || hostname === '127.0.0.1';
+  } catch {
+    return false;
+  }
+}
 
 export function createApp() {
   const app = express();
@@ -27,6 +38,11 @@ export function createApp() {
         }
 
         if (env.corsOrigins.includes(origin)) {
+          callback(null, true);
+          return;
+        }
+
+        if (!env.isProduction && isLocalDevOrigin(origin)) {
           callback(null, true);
           return;
         }
@@ -52,6 +68,7 @@ export function createApp() {
   app.use('/api/auth', authRouter);
   app.use('/api/devices', devicesRouter);
   app.use('/api/homes', homesRouter);
+  app.use('/api/merchant', merchantRouter);
 
   app.use('/api/ops/auth', opsAuthRouter);
   app.use('/api/ops/dashboard', opsDashboardRouter);
@@ -61,6 +78,7 @@ export function createApp() {
   app.use('/api/ops/alerts', opsAlertsRouter);
   app.use('/api/ops/commands', opsCommandsRouter);
   app.use('/api/ops/configs', opsConfigsRouter);
+  app.use('/api/ops/merchant', opsMerchantRouter);
 
   app.use(errorHandler);
 

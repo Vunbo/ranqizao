@@ -193,3 +193,93 @@ export interface OpsConfigItem {
   type: 'message' | 'alert' | 'risk';
   data: Record<string, any>;
 }
+
+export interface MerchantPageCard {
+  id: string;
+  title: string;
+  badge: string;
+  items: string[];
+  note: string;
+}
+
+export interface MerchantPageContact {
+  title: string;
+  phone: string;
+  wechat: string;
+  address: string;
+  note: string;
+}
+
+export interface MerchantPagePayload {
+  pageTitle: string;
+  pageSubtitle: string;
+  applyNotice: string;
+  cards: MerchantPageCard[];
+  contact: MerchantPageContact;
+}
+
+export interface OpsMerchantPageVersion {
+  id: string;
+  title: string;
+  versionType: 'draft' | 'published';
+  payload: MerchantPagePayload;
+  createdByName: string | null;
+  updatedByName: string | null;
+  publishedByName: string | null;
+  publishedAt: string | null;
+  updatedAt: string;
+}
+
+export interface OpsMerchantPageResponse {
+  draft: OpsMerchantPageVersion | null;
+  published: OpsMerchantPageVersion | null;
+}
+
+export interface OpsMerchantApplicationItem {
+  id: string;
+  userPk: string;
+  uid: string;
+  userDisplayName: string;
+  userPhone: string | null;
+  userEmail: string | null;
+  status: 'pending' | 'approved' | 'rejected';
+  levelCode: 'operations_center' | 'district_agent';
+  levelLabel: string;
+  merchantName: string;
+  contactName: string;
+  contactPhone: string;
+  region: string;
+  address: string;
+  note: string | null;
+  snapshot: Record<string, any> | null;
+  reviewComment: string | null;
+  reviewedByName: string | null;
+  reviewedAt: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface OpsMerchantProfileItem {
+  id: string;
+  applicationId: string;
+  userPk: string;
+  uid: string;
+  userDisplayName: string;
+  userPhone: string | null;
+  userEmail: string | null;
+  merchantName: string;
+  contactName: string;
+  contactPhone: string;
+  levelCode: 'operations_center' | 'district_agent';
+  levelLabel: string;
+  status: 'active' | 'disabled';
+  approvedByName: string | null;
+  approvedAt: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface OpsMerchantApplicationDetailResponse {
+  application: OpsMerchantApplicationItem;
+  profile: OpsMerchantProfileItem | null;
+}

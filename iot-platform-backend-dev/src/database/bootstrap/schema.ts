@@ -245,6 +245,59 @@ const CREATE_SCHEMA_SQL = `
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
   );
+
+  CREATE TABLE IF NOT EXISTS merchant_page_contents (
+    id TEXT PRIMARY KEY,
+    page_key VARCHAR(64) NOT NULL,
+    version_type VARCHAR(16) NOT NULL
+      CHECK (version_type IN ('draft', 'published')),
+    title TEXT NOT NULL,
+    payload JSONB NOT NULL,
+    created_by TEXT REFERENCES admin_users(id) ON DELETE SET NULL,
+    updated_by TEXT REFERENCES admin_users(id) ON DELETE SET NULL,
+    published_by TEXT REFERENCES admin_users(id) ON DELETE SET NULL,
+    published_at TIMESTAMPTZ,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+  );
+
+  CREATE TABLE IF NOT EXISTS merchant_applications (
+    id TEXT PRIMARY KEY,
+    user_pk TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    status VARCHAR(16) NOT NULL DEFAULT 'pending'
+      CHECK (status IN ('pending', 'approved', 'rejected')),
+    level_code VARCHAR(32) NOT NULL
+      CHECK (level_code IN ('operations_center', 'district_agent')),
+    merchant_name TEXT NOT NULL,
+    contact_name TEXT NOT NULL,
+    contact_phone TEXT NOT NULL,
+    region TEXT NOT NULL,
+    address TEXT NOT NULL,
+    note TEXT,
+    snapshot JSONB,
+    review_comment TEXT,
+    reviewed_by TEXT REFERENCES admin_users(id) ON DELETE SET NULL,
+    reviewed_at TIMESTAMPTZ,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+  );
+
+  CREATE TABLE IF NOT EXISTS merchant_profiles (
+    id TEXT PRIMARY KEY,
+    application_id TEXT NOT NULL REFERENCES merchant_applications(id) ON DELETE CASCADE,
+    user_pk TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    merchant_name TEXT NOT NULL,
+    contact_name TEXT NOT NULL,
+    contact_phone TEXT NOT NULL,
+    level_code VARCHAR(32) NOT NULL
+      CHECK (level_code IN ('operations_center', 'district_agent')),
+    status VARCHAR(16) NOT NULL DEFAULT 'active'
+      CHECK (status IN ('active', 'disabled')),
+    approved_by TEXT REFERENCES admin_users(id) ON DELETE SET NULL,
+    approved_at TIMESTAMPTZ,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+  );
 `;
 
 const ALTER_SCHEMA_SQL = `
@@ -330,6 +383,21 @@ const ALTER_SCHEMA_SQL = `
   CREATE UNIQUE INDEX IF NOT EXISTS idx_config_templates_name ON config_templates(name);
   CREATE UNIQUE INDEX IF NOT EXISTS idx_alert_rules_rule_key ON alert_rules(rule_key);
   CREATE UNIQUE INDEX IF NOT EXISTS idx_risk_rules_rule_key ON risk_rules(rule_key);
+  CREATE UNIQUE INDEX IF NOT EXISTS idx_merchant_page_contents_page_version
+    ON merchant_page_contents(page_key, version_type);
+  CREATE UNIQUE INDEX IF NOT EXISTS idx_merchant_applications_pending_user
+    ON merchant_applications(user_pk)
+    WHERE status = 'pending';
+  CREATE INDEX IF NOT EXISTS idx_merchant_applications_status_created_at
+    ON merchant_applications(status, created_at DESC);
+  CREATE INDEX IF NOT EXISTS idx_merchant_applications_user_pk_created_at
+    ON merchant_applications(user_pk, created_at DESC);
+  CREATE UNIQUE INDEX IF NOT EXISTS idx_merchant_profiles_user_pk
+    ON merchant_profiles(user_pk);
+  CREATE UNIQUE INDEX IF NOT EXISTS idx_merchant_profiles_application_id
+    ON merchant_profiles(application_id);
+  CREATE INDEX IF NOT EXISTS idx_merchant_profiles_status_created_at
+    ON merchant_profiles(status, created_at DESC);
 `;
 
 const CLEANUP_LEGACY_COLUMNS_SQL = `
