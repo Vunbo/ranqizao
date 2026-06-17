@@ -8,7 +8,7 @@ import {
   getMerchantLandingPage,
   getMerchantSummary,
   submitMerchantApplication,
-} from '../merchant'
+} from '../../remote/merchant'
 
 const LEVEL_OPTIONS = [
   { value: 'operations_center', label: '运营中心' },

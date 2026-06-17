@@ -40,6 +40,7 @@ defineProps({
 const tabs = [
   { id: 'home', label: '首页', icon: 'flame' },
   { id: 'safety', label: '安全', icon: 'shield' },
+  { id: 'mall', label: '商城', icon: 'store' },
   { id: 'profile', label: '我的', icon: 'user' },
 ]
 </script>

@@ -8,7 +8,7 @@ import {
   loginWithWechatApp,
   registerWithPassword,
   sendPhoneLoginCode,
-} from '../auth'
+} from '../../remote/auth'
 import { createCountdownTimer, formatCountdownText } from '../profile/account-binding-helpers'
 import {
   createNotifier,

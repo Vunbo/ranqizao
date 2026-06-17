@@ -5,7 +5,7 @@ import {
   shareDevice,
   unshareDevice,
   updateDevice,
-} from '../device'
+} from '../../remote/devices'
 import {
   createCallbackTrigger,
   createNotifier,

@@ -1,4 +1,5 @@
 import { query, type DatabaseExecutor } from '../../../database/client';
+import { paginatedQuery } from '../common/pagination';
 
 export interface OpsDeviceRow {
   id: string;
@@ -68,6 +69,31 @@ export async function listOpsDeviceRows() {
   );
 
   return result.rows;
+}
+
+/**
+ * Paginated device query with SQL-side search and model filter.
+ * Derived fields (online, status, country, province, city) are still
+ * filtered in the service layer because they are computed from raw columns.
+ */
+export async function paginatedOpsDevices(page: number, pageSize: number, search: string, model: string) {
+  return paginatedQuery<OpsDeviceRow>(
+    {
+      selectFrom: OPS_DEVICE_SELECT_SQL,
+      searchColumns: [
+        'COALESCE(d.serial_number, di.serial_number)',
+        'd.name',
+        'd.owner_id',
+        'owner_user.display_name',
+        'COALESCE(d.location->>\'address\', \'\')',
+      ],
+      filterColumns: {
+        model: 'di.product_model',
+      },
+      orderBy: 'ORDER BY d.updated_at DESC',
+    },
+    { page, pageSize, search, filters: { model } }
+  );
 }
 
 export async function getOpsDeviceRow(

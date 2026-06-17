@@ -1,0 +1,1 @@
+export { MallManagementPage } from './MallManagementPage';

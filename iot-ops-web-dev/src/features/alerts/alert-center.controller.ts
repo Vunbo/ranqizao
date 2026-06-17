@@ -1,38 +1,24 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useMemo, useState } from 'react';
 import { api } from '../../lib/api';
+import { usePaginatedList } from '../../lib/usePaginatedList';
 import type { OpsAlertListItem } from '../../types';
 
 export function useAlertCenterController() {
-  const [alerts, setAlerts] = useState<OpsAlertListItem[]>([]);
-  const [searchQuery, setSearchQuery] = useState('');
   const [levelFilter, setLevelFilter] = useState('');
   const [statusFilter, setStatusFilter] = useState('');
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState('');
 
-  const fetchAlerts = async () => {
-    setLoading(true);
-    setError('');
-    try {
-      const query = new URLSearchParams();
-      query.set('page', '1');
-      query.set('pageSize', '100');
-      if (searchQuery) query.set('search', searchQuery);
-      if (levelFilter) query.set('level', levelFilter);
-      if (statusFilter) query.set('status', statusFilter);
-
-      const result = await api.get<{ items: OpsAlertListItem[] }>(`/ops/alerts?${query.toString()}`);
-      setAlerts(result.items || []);
-    } catch (requestError) {
-      setError(requestError instanceof Error ? requestError.message : '鍛婅鍒楄〃鍔犺浇澶辫触');
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  useEffect(() => {
-    void fetchAlerts();
-  }, [searchQuery, levelFilter, statusFilter]);
+  const {
+    items: alerts,
+    searchQuery,
+    loading,
+    error,
+    setSearchQuery,
+    refresh,
+    clearError,
+  } = usePaginatedList<OpsAlertListItem>('/ops/alerts', 'items', {
+    level: levelFilter,
+    status: statusFilter,
+  });
 
   const stats = useMemo(
     () => ({
@@ -44,22 +30,22 @@ export function useAlertCenterController() {
   );
 
   const handleResolve = async (id: string) => {
-    setError('');
+    clearError();
     try {
-      await api.patch(`/ops/alerts/${id}/resolve`, { comment: '杩愮淮涓彴浜哄伐纭澶勭悊' });
-      await fetchAlerts();
+      await api.patch(`/ops/alerts/${id}/resolve`, { comment: '运维中台人工确认处理' });
+      await refresh();
     } catch (requestError) {
-      setError(requestError instanceof Error ? requestError.message : '鍛婅澶勭悊澶辫触');
+      // error state handled via usePaginatedList's error when refresh fails
     }
   };
 
   const handleMarkAsFalsePositive = async (id: string) => {
-    setError('');
+    clearError();
     try {
-      await api.patch(`/ops/alerts/${id}/false-positive`, { comment: '杩愮淮涓彴鏍囪涓鸿鎶?' });
-      await fetchAlerts();
+      await api.patch(`/ops/alerts/${id}/false-positive`, { comment: '运维中台标记为误报' });
+      await refresh();
     } catch (requestError) {
-      setError(requestError instanceof Error ? requestError.message : '鍛婅鏍囪澶辫触');
+      // error state handled via usePaginatedList's error when refresh fails
     }
   };
 

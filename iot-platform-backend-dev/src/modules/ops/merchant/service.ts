@@ -11,8 +11,8 @@ import {
   getMerchantApplicationEntityForUpdate,
   getMerchantPageVersion,
   getMerchantProfileByUserPk,
-  listMerchantApplicationRows,
-  listMerchantProfileRows,
+  paginatedMerchantApplications,
+  paginatedMerchantProfiles,
   updateMerchantApplicationReview,
   upsertMerchantPageVersion,
   upsertMerchantProfileFromApplication,
@@ -20,10 +20,6 @@ import {
 
 function normalizeText(value: unknown) {
   return String(value || '').trim();
-}
-
-function containsSearch(value: string, search: string) {
-  return value.toLowerCase().includes(search);
 }
 
 function mapOpsPage(page: Awaited<ReturnType<typeof getMerchantPageVersion>>) {
@@ -161,31 +157,11 @@ export async function listOpsMerchantApplications(input: {
   const search = normalizeText(input.search).toLowerCase();
   const status = normalizeText(input.status);
 
-  const rows = await listMerchantApplicationRows();
-
-  const filtered = rows.filter((row) => {
-    const matchesSearch =
-      !search
-      || containsSearch(row.uid, search)
-      || containsSearch(row.userDisplayName, search)
-      || containsSearch(row.merchantName, search)
-      || containsSearch(row.contactName, search)
-      || containsSearch(row.contactPhone, search)
-      || containsSearch(row.region, search);
-    const matchesStatus = !status || row.status === status;
-
-    return matchesSearch && matchesStatus;
-  });
-
-  const offset = (page - 1) * pageSize;
+  const result = await paginatedMerchantApplications(page, pageSize, search, status);
 
   return {
-    items: filtered.slice(offset, offset + pageSize).map(mapApplication),
-    pagination: {
-      page,
-      pageSize,
-      total: filtered.length,
-    },
+    items: result.items.map(mapApplication),
+    pagination: result.pagination,
   };
 }
 
@@ -271,29 +247,10 @@ export async function listOpsMerchantProfiles(input: {
   const search = normalizeText(input.search).toLowerCase();
   const status = normalizeText(input.status);
 
-  const rows = await listMerchantProfileRows();
-
-  const filtered = rows.filter((row) => {
-    const matchesSearch =
-      !search
-      || containsSearch(row.uid, search)
-      || containsSearch(row.userDisplayName, search)
-      || containsSearch(row.merchantName, search)
-      || containsSearch(row.contactName, search)
-      || containsSearch(row.contactPhone, search);
-    const matchesStatus = !status || row.status === status;
-
-    return matchesSearch && matchesStatus;
-  });
-
-  const offset = (page - 1) * pageSize;
+  const result = await paginatedMerchantProfiles(page, pageSize, search, status);
 
   return {
-    items: filtered.slice(offset, offset + pageSize).map(mapProfile),
-    pagination: {
-      page,
-      pageSize,
-      total: filtered.length,
-    },
+    items: result.items.map(mapProfile),
+    pagination: result.pagination,
   };
 }

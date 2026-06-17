@@ -2,6 +2,10 @@ import { randomUUID } from 'crypto';
 import bcrypt from 'bcryptjs';
 import { Pool } from 'pg';
 import { env } from '../../config/env';
+import {
+  createEmptyMallPagePayload,
+  MALL_PAGE_KEY,
+} from '../../modules/mall/mall.content';
 
 export async function ensureDefaultUser(mainPool: Pool) {
   const defaultEmail = '123@test.com';
@@ -257,6 +261,52 @@ export async function ensureDefaultOpsConfigs(mainPool: Pool) {
       ]
     );
   }
+}
+
+export async function ensureDefaultMallPage(mainPool: Pool) {
+  const pageExists = await mainPool.query<{ exists: boolean }>(
+    `
+      SELECT EXISTS(
+        SELECT 1
+        FROM mall_page_contents
+        WHERE page_key = $1
+      ) AS "exists"
+    `,
+    [MALL_PAGE_KEY]
+  );
+
+  if (pageExists.rows[0]?.exists) {
+    return;
+  }
+
+  const adminResult = await mainPool.query<{ id: string }>(
+    'SELECT id FROM admin_users ORDER BY created_at ASC LIMIT 1'
+  );
+  const adminId = adminResult.rows[0]?.id || null;
+  const payload = createEmptyMallPagePayload();
+
+  await mainPool.query(
+    `
+      INSERT INTO mall_page_contents (
+        id,
+        page_key,
+        version_type,
+        title,
+        payload,
+        created_by,
+        updated_by
+      )
+      VALUES ($1, $2, 'draft', $3, $4::jsonb, $5, $5)
+      ON CONFLICT (page_key, version_type) DO NOTHING
+    `,
+    [
+      randomUUID(),
+      MALL_PAGE_KEY,
+      '商城',
+      JSON.stringify(payload),
+      adminId,
+    ]
+  );
 }
 
 export async function ensureDefaultOpsRecords(mainPool: Pool) {

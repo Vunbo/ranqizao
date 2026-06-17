@@ -3,7 +3,7 @@ import {
   createNotifier,
   formatErrorMessage,
 } from '../common/controller-helpers'
-import { getMerchantPanel } from '../merchant'
+import { getMerchantPanel } from '../../remote/merchant'
 
 export function useMerchantPanelController(options = {}) {
   const { notify } = options

@@ -119,37 +119,26 @@ export function useDashboardController() {
         if (filters.province) baseQuery.set('province', filters.province);
         if (filters.city) baseQuery.set('city', filters.city);
 
-        const items: OpsDeviceItem[] = [];
-        let page = 1;
-        let total = Infinity;
+        const query = new URLSearchParams(baseQuery);
+        query.set('page', '1');
+        query.set('pageSize', '200');
 
-        while (items.length < total) {
-          const query = new URLSearchParams(baseQuery);
-          query.set('page', String(page));
-          query.set('pageSize', '100');
+        const response = await api.get<{
+          items: OpsDeviceItem[];
+          pagination: { total: number };
+        }>(`/ops/devices?${query.toString()}`);
 
-          const response = await api.get<{
-            items: OpsDeviceItem[];
-            pagination: { total: number };
-          }>(`/ops/devices?${query.toString()}`);
-
-          if (cancelled) {
-            return;
-          }
-
-          items.push(...(response.items || []));
-          total = response.pagination?.total ?? items.length;
-
-          if (!response.items?.length) {
-            break;
-          }
-
-          page += 1;
+        if (cancelled) {
+          return;
         }
+
+        // Dashboard loads a single page of devices for map rendering.
+        // Aggregate statistics come from /ops/dashboard/summary.
+        const items = response.items || [];
 
         if (!cancelled) {
           setSummary(summaryResponse.summary);
-          setDevices(items.slice(0, total));
+          setDevices(items);
         }
       } catch (requestError) {
         if (!cancelled) {

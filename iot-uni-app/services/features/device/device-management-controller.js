@@ -1,5 +1,5 @@
 import { computed, ref } from 'vue'
-import { removeDevice, updateDevice } from '../device'
+import { removeDevice, updateDevice } from '../../remote/devices'
 import {
   createCallbackTrigger,
   createNotifier,

@@ -3,7 +3,7 @@ import {
   bindScannedDevice,
   createDevice,
   scanBindableDevice,
-} from '../device'
+} from '../../remote/devices'
 import {
   createCallbackTrigger,
   createNotifier,

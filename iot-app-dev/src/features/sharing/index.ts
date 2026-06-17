@@ -1,1 +1,0 @@
-export { SharingManagementView } from './SharingManagementView';

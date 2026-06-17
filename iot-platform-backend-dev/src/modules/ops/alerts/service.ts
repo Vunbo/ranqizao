@@ -4,7 +4,7 @@ import {
   markOpsAlertFalsePositiveByAdmin,
   resolveOpsAlertByAdmin,
 } from './alert-mutations';
-import { listOpsAlertRows } from './alert-repository';
+import { paginatedOpsAlerts } from './alert-repository';
 
 export async function listOpsAlerts(input: {
   page?: unknown;
@@ -19,29 +19,14 @@ export async function listOpsAlerts(input: {
   const level = String(input.level || '').trim();
   const status = String(input.status || '').trim();
 
-  const filtered = (await listOpsAlertRows()).filter((row) => {
-    const matchesSearch = !search
-      || row.deviceSn.toLowerCase().includes(search)
-      || row.message.toLowerCase().includes(search)
-      || row.title.toLowerCase().includes(search);
-    const matchesLevel = !level || row.level === level;
-    const matchesStatus = !status || row.status === status;
-    return matchesSearch && matchesLevel && matchesStatus;
-  });
-
-  const total = filtered.length;
-  const offset = (page - 1) * pageSize;
+  const result = await paginatedOpsAlerts(page, pageSize, search, level, status);
 
   return {
-    items: filtered.slice(offset, offset + pageSize).map((row) => ({
+    items: result.items.map((row) => ({
       ...row,
       handlerName: row.handlerName || '-',
     })),
-    pagination: {
-      page,
-      pageSize,
-      total,
-    },
+    pagination: result.pagination,
   };
 }
 

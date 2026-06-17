@@ -1,5 +1,6 @@
 import { request } from '../http/request'
 
+// Internal service object (kept for explicit destructuring use)
 export const remoteDeviceService = {
   async list() {
     const response = await request('/devices')
@@ -67,3 +68,15 @@ export const remoteDeviceService = {
     })
   },
 }
+
+// Named exports — match the old gateway function signatures
+export const listDevices = () => remoteDeviceService.list()
+export const scanBindableDevice = (qrCode) => remoteDeviceService.scanBindable(qrCode)
+export const bindScannedDevice = (payload) => remoteDeviceService.bindScanned(payload)
+export const createDevice = (payload) => remoteDeviceService.create(payload)
+export const updateDevice = (deviceId, payload) => remoteDeviceService.update(deviceId, payload)
+export const removeDevice = (deviceId) => remoteDeviceService.remove(deviceId)
+export const listDeviceLogs = (deviceId) => remoteDeviceService.listLogs(deviceId)
+export const createDeviceLog = (deviceId, payload) => remoteDeviceService.createLog(deviceId, payload)
+export const shareDevice = (deviceId, userId) => remoteDeviceService.share(deviceId, userId)
+export const unshareDevice = (deviceId, userId) => remoteDeviceService.unshare(deviceId, userId)

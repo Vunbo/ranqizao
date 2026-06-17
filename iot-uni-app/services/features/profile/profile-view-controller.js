@@ -1,6 +1,6 @@
 import { computed, ref } from 'vue'
-import { updateCurrentUserProfile } from '../account'
-import { getMerchantSummary } from '../merchant'
+import { updateCurrentUserProfile } from '../../remote/auth'
+import { getMerchantSummary } from '../../remote/merchant'
 import {
   createCallbackTrigger,
   createNotifier,

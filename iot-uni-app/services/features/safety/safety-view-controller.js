@@ -1,5 +1,5 @@
 import { computed, onBeforeUnmount, ref, watch } from 'vue'
-import { listDeviceLogs } from '../device'
+import { listDeviceLogs } from '../../remote/devices'
 import { getUserShortUid, isOwnedByShortUid } from '../common/user-helpers'
 
 export function useSafetyViewController(options) {

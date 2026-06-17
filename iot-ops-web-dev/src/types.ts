@@ -194,6 +194,47 @@ export interface OpsConfigItem {
   data: Record<string, any>;
 }
 
+export interface MallProductCard {
+  id: string;
+  title: string;
+  subtitle: string;
+  price: string;
+  unit: string;
+  tag: string;
+}
+
+export interface MallSectionCard {
+  id: string;
+  title: string;
+  badge: string;
+  description: string;
+  products: MallProductCard[];
+  note: string;
+}
+
+export interface MallPagePayload {
+  pageTitle: string;
+  pageSubtitle: string;
+  cards: MallSectionCard[];
+}
+
+export interface OpsMallPageVersion {
+  id: string;
+  title: string;
+  versionType: 'draft' | 'published';
+  payload: MallPagePayload;
+  createdByName: string | null;
+  updatedByName: string | null;
+  publishedByName: string | null;
+  publishedAt: string | null;
+  updatedAt: string;
+}
+
+export interface OpsMallPageResponse {
+  draft: OpsMallPageVersion | null;
+  published: OpsMallPageVersion | null;
+}
+
 export interface MerchantPageCard {
   id: string;
   title: string;

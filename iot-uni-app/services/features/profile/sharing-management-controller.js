@@ -1,10 +1,6 @@
 import { computed, ref } from 'vue'
-import {
-  addHomeMember,
-  removeHomeMembers,
-  shareDevice,
-  unshareDevice,
-} from '../sharing'
+import { shareDevice, unshareDevice } from '../../remote/devices'
+import { addHomeMember, removeHomeMembers } from '../../remote/homes'
 import {
   createCallbackTrigger,
   createNotifier,

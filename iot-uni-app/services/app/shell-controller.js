@@ -1,26 +1,30 @@
 import { computed, ref } from 'vue'
-import { logoutCurrentSession, restoreSession } from '../features/auth'
-import { listDevices } from '../features/device'
-import { listHomes } from '../features/home'
+import { logoutCurrentSession, restoreSession } from '../remote/auth'
+import { listDevices } from '../remote/devices'
+import { listHomes } from '../remote/homes'
+import { openMallH5 } from '../features/mall-h5'
+import { usePolling } from './usePolling'
 
 const DEFAULT_POLLING_INTERVAL = 3000
 
 export function useAppShellController(options = {}) {
-  const {
-    onToast,
-    pollingIntervalMs = DEFAULT_POLLING_INTERVAL,
-  } = options
+  const { onToast, pollingIntervalMs = DEFAULT_POLLING_INTERVAL } = options
 
+  // ---- auth ----
   const authReady = ref(false)
   const user = ref(null)
+
+  // ---- domain state ----
   const devices = ref([])
   const homes = ref([])
+
+  // ---- navigation ----
   const activeTab = ref('home')
   const selectedDeviceId = ref('')
   const activeSubView = ref('main')
   const isAddModalOpen = ref(false)
-  const refreshTimer = ref(null)
 
+  // ---- derived ----
   const currentDevice = computed(() => {
     return devices.value.find((item) => item.id === selectedDeviceId.value) || null
   })
@@ -29,6 +33,15 @@ export function useAppShellController(options = {}) {
     return !selectedDeviceId.value && activeSubView.value === 'main' && !isAddModalOpen.value
   })
 
+  // ---- polling (extracted deep module) ----
+  const pollingEnabled = computed(() => !!user.value)
+
+  const polling = usePolling(
+    () => refreshAll(false),
+    { intervalMs: pollingIntervalMs, enabled: pollingEnabled }
+  )
+
+  // ---- helpers ----
   function notifyToast(payload) {
     if (payload && typeof onToast === 'function') {
       onToast(payload)
@@ -65,28 +78,12 @@ export function useAppShellController(options = {}) {
       }
     } catch (error) {
       if (showErrors) {
-        notifyToast({
-          message: error.message || '数据加载失败',
-          type: 'error',
-        })
+        notifyToast({ message: error.message || '数据加载失败', type: 'error' })
       }
     }
   }
 
-  function stopPolling() {
-    if (refreshTimer.value) {
-      clearInterval(refreshTimer.value)
-      refreshTimer.value = null
-    }
-  }
-
-  function startPolling() {
-    stopPolling()
-    refreshTimer.value = setInterval(() => {
-      refreshAll(false)
-    }, pollingIntervalMs)
-  }
-
+  // ---- session management ----
   async function bootstrapSession() {
     authReady.value = false
 
@@ -96,16 +93,13 @@ export function useAppShellController(options = {}) {
       if (session && session.user) {
         user.value = session.user
         await refreshAll(true)
-        startPolling()
+        polling.start()
       } else {
         resetViewState()
       }
     } catch (_error) {
       resetViewState()
-      notifyToast({
-        message: '会话已失效，请重新登录',
-        type: 'info',
-      })
+      notifyToast({ message: '会话已失效，请重新登录', type: 'info' })
     } finally {
       authReady.value = true
     }
@@ -119,12 +113,17 @@ export function useAppShellController(options = {}) {
     isAddModalOpen.value = false
     authReady.value = true
     await refreshAll(true)
-    startPolling()
+    polling.start()
   }
 
+  // ---- navigation ----
   function handleTabChange(tab) {
-    activeTab.value = tab
+    if (tab === 'mall') {
+      openMallH5()
+      return
+    }
 
+    activeTab.value = tab
     if (tab !== 'profile') {
       activeSubView.value = 'main'
     }
@@ -162,7 +161,7 @@ export function useAppShellController(options = {}) {
 
   async function logout() {
     await logoutCurrentSession()
-    stopPolling()
+    polling.stop()
     resetViewState()
   }
 
@@ -184,7 +183,7 @@ export function useAppShellController(options = {}) {
     handlePageShow,
     handlePullDownRefresh,
     refreshAll,
-    stopPolling,
+    stopPolling: polling.stop,
     resetViewState,
     selectDevice,
     clearSelectedDevice,

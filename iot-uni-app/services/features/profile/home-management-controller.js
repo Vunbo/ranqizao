@@ -3,7 +3,7 @@ import {
   createHome,
   removeHome,
   updateHomeDeviceLinks,
-} from '../home'
+} from '../../remote/homes'
 import {
   createCallbackTrigger,
   createNotifier,
