@@ -3,6 +3,7 @@ import {
   query,
   type DatabaseExecutor,
 } from '../../database/client';
+import { paginatedQuery } from '../ops/common/pagination';
 import { MERCHANT_PAGE_KEY, normalizeMerchantPagePayload } from './merchant.content';
 import type {
   MerchantApplicationStatus,
@@ -460,6 +461,53 @@ export async function updateMerchantApplicationReview(
   );
 
   return getMerchantApplicationDetailById(input.applicationId, executor);
+}
+
+export async function paginatedMerchantApplications(page: number, pageSize: number, search: string, status: string) {
+  return paginatedQuery<MerchantApplicationRow>(
+    {
+      selectFrom: MERCHANT_APPLICATION_SELECT_SQL,
+      searchColumns: [
+        'u.short_uid',
+        'u.display_name',
+        'ma.merchant_name',
+        'ma.contact_name',
+        'ma.contact_phone',
+        'ma.region',
+      ],
+      filterColumns: {
+        status: 'ma.status',
+      },
+      orderBy: `ORDER BY
+        CASE ma.status
+          WHEN 'pending' THEN 0
+          WHEN 'approved' THEN 1
+          ELSE 2
+        END,
+        ma.created_at DESC`,
+    },
+    { page, pageSize, search, filters: { status } }
+  );
+}
+
+export async function paginatedMerchantProfiles(page: number, pageSize: number, search: string, status: string) {
+  return paginatedQuery<MerchantProfileRow>(
+    {
+      selectFrom: MERCHANT_PROFILE_SELECT_SQL,
+      searchColumns: [
+        'u.short_uid',
+        'u.display_name',
+        'mp.merchant_name',
+        'mp.contact_name',
+        'mp.contact_phone',
+      ],
+      filterColumns: {
+        status: 'mp.status',
+      },
+      orderBy: 'ORDER BY mp.approved_at DESC NULLS LAST, mp.created_at DESC',
+    },
+    { page, pageSize, search, filters: { status } }
+  );
 }
 
 export async function listMerchantProfileRows() {

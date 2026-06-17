@@ -1,5 +1,5 @@
 import { normalizePage, normalizePageSize } from '../common/pagination';
-import { listOpsShareRows } from './share-repository';
+import { paginatedOpsShares } from './share-repository';
 
 export async function listOpsShares(input: {
   page?: unknown;
@@ -10,26 +10,10 @@ export async function listOpsShares(input: {
   const pageSize = normalizePageSize(input.pageSize, 20);
   const search = String(input.search || '').trim().toLowerCase();
 
-  const filtered = (await listOpsShareRows()).filter((row) => {
-    if (!search) {
-      return true;
-    }
-
-    return (
-      String(row.resourceSn || '').toLowerCase().includes(search)
-      || row.resourceName.toLowerCase().includes(search)
-      || row.ownerUid.toLowerCase().includes(search)
-      || row.ownerDisplayName.toLowerCase().includes(search)
-      || row.sharedToUid.toLowerCase().includes(search)
-      || row.sharedToDisplayName.toLowerCase().includes(search)
-    );
-  });
-
-  const total = filtered.length;
-  const offset = (page - 1) * pageSize;
+  const result = await paginatedOpsShares(page, pageSize, search);
 
   return {
-    items: filtered.slice(offset, offset + pageSize).map((row) => ({
+    items: result.items.map((row) => ({
       id: row.id,
       type: row.type,
       resourceId: row.resourceId,
@@ -43,10 +27,6 @@ export async function listOpsShares(input: {
       expiry: null,
       createdAt: row.createdAt,
     })),
-    pagination: {
-      page,
-      pageSize,
-      total,
-    },
+    pagination: result.pagination,
   };
 }

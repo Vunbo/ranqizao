@@ -10,14 +10,9 @@ import {
   Moon
 } from 'lucide-react';
 import { useNavigate, useLocation } from 'react-router-dom';
-import { clsx, type ClassValue } from 'clsx';
-import { twMerge } from 'tailwind-merge';
 import { clearAuthSession, getStoredAuthUser } from '../lib/auth';
+import { cn } from '../lib/cn';
 import { OPS_NAV_ITEMS, OPS_ROUTES } from '../router/routes';
-
-function cn(...inputs: ClassValue[]) {
-  return twMerge(clsx(inputs));
-}
 
 interface NavItemProps {
   icon: React.ElementType;
@@ -86,11 +81,8 @@ export const Layout = ({ children }: { children: React.ReactNode }) => {
     navigate(OPS_ROUTES.login);
   };
 
-  const alerts = [
-    { id: 1, title: '设备离线告警', time: '实时', type: 'danger', msg: '可在告警中心查看完整处理链路' },
-    { id: 2, title: '审计日志同步', time: '实时', type: 'warning', msg: '控制审计已切换到后台结构化数据' },
-    { id: 3, title: '系统状态', time: '实时', type: 'success', msg: '运维中台已接入第一阶段后端接口' },
-  ];
+  // Notification panel — reserved for server-pushed events
+  const alerts: Array<{ id: number; title: string; time: string; type: string; msg: string }> = [];
 
   return (
     <div className="flex h-screen bg-bg-main text-text-primary overflow-hidden font-sans selection:bg-brand/30 selection:text-brand transition-colors duration-300">
@@ -178,21 +170,27 @@ export const Layout = ({ children }: { children: React.ReactNode }) => {
                       <h3 className="text-xs font-bold text-text-primary tracking-widest uppercase">实时通知中心</h3>
                     </div>
                     <div className="max-h-[400px] overflow-y-auto">
-                      {alerts.map((alert) => (
-                        <div key={alert.id} className="p-4 border-b border-border-subtle last:border-0 hover:bg-white/5 transition-colors cursor-pointer group">
-                          <div className="flex justify-between items-start mb-1">
-                            <div className="flex items-center space-x-2">
-                              <div className={cn(
-                                'w-1.5 h-1.5 rounded-full',
-                                alert.type === 'danger' ? 'bg-danger' : alert.type === 'warning' ? 'bg-warning' : 'bg-success'
-                              )} />
-                              <span className="text-[11px] font-bold text-text-primary group-hover:text-brand transition-colors">{alert.title}</span>
-                            </div>
-                            <span className="text-[9px] font-mono text-text-secondary">{alert.time}</span>
-                          </div>
-                          <p className="text-[10px] text-text-secondary leading-relaxed pl-3.5">{alert.msg}</p>
+                      {alerts.length === 0 ? (
+                        <div className="p-6 text-center text-[10px] text-text-secondary">
+                          暂无实时通知
                         </div>
-                      ))}
+                      ) : (
+                        alerts.map((alert) => (
+                          <div key={alert.id} className="p-4 border-b border-border-subtle last:border-0 hover:bg-white/5 transition-colors cursor-pointer group">
+                            <div className="flex justify-between items-start mb-1">
+                              <div className="flex items-center space-x-2">
+                                <div className={cn(
+                                  'w-1.5 h-1.5 rounded-full',
+                                  alert.type === 'danger' ? 'bg-danger' : alert.type === 'warning' ? 'bg-warning' : 'bg-success'
+                                )} />
+                                <span className="text-[11px] font-bold text-text-primary group-hover:text-brand transition-colors">{alert.title}</span>
+                              </div>
+                              <span className="text-[9px] font-mono text-text-secondary">{alert.time}</span>
+                            </div>
+                            <p className="text-[10px] text-text-secondary leading-relaxed pl-3.5">{alert.msg}</p>
+                          </div>
+                        ))
+                      )}
                     </div>
                   </div>
                 </>

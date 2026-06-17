@@ -4,7 +4,7 @@ import { normalizePage, normalizePageSize } from '../common/pagination';
 import {
   getOpsUserRow,
   listBoundDeviceRowsForUser,
-  listOpsUserRows,
+  paginatedOpsUsers,
   listSharedDeviceRowsForUser,
 } from './user-repository';
 
@@ -19,21 +19,10 @@ export async function listOpsUsers(input: {
   const search = String(input.search || '').trim().toLowerCase();
   const status = String(input.status || '').trim();
 
-  const filtered = (await listOpsUserRows()).filter((row) => {
-    const matchesSearch = !search
-      || row.uid.toLowerCase().includes(search)
-      || row.displayName.toLowerCase().includes(search)
-      || String(row.phone || '').toLowerCase().includes(search)
-      || String(row.email || '').toLowerCase().includes(search);
-    const matchesStatus = !status || row.status === status;
-    return matchesSearch && matchesStatus;
-  });
-
-  const total = filtered.length;
-  const offset = (page - 1) * pageSize;
+  const result = await paginatedOpsUsers(page, pageSize, search, status);
 
   return {
-    items: filtered.slice(offset, offset + pageSize).map((row) => ({
+    items: result.items.map((row) => ({
       userId: row.userId,
       uid: row.uid,
       displayName: row.displayName,
@@ -44,11 +33,7 @@ export async function listOpsUsers(input: {
       shareCount: Number(row.shareCount || 0),
       lastLoginAt: row.lastLoginAt,
     })),
-    pagination: {
-      page,
-      pageSize,
-      total,
-    },
+    pagination: result.pagination,
   };
 }
 

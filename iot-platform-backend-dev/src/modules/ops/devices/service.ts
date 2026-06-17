@@ -7,42 +7,33 @@ import {
   listOpsDeviceAlertsByDeviceId,
   listOpsDeviceCommandsByDeviceId,
   listOpsDeviceHomes,
-  listOpsDeviceRows,
+  paginatedOpsDevices,
   listOpsDeviceSharedUsers,
 } from './device-repository';
 
-function applyDeviceFilters(
-  devices: ReturnType<typeof mapDeviceRowToView>[],
+type DeviceView = ReturnType<typeof mapDeviceRowToView>;
+
+function applyDerivedFilters(
+  devices: DeviceView[],
   filters: {
-    search: string;
     status: string;
     online: string;
-    model: string;
     country: string;
     province: string;
     city: string;
   }
 ) {
   return devices.filter((device) => {
-    const matchesSearch = !filters.search
-      || device.sn.toLowerCase().includes(filters.search)
-      || device.name.toLowerCase().includes(filters.search)
-      || device.ownerUid.toLowerCase().includes(filters.search)
-      || device.ownerDisplayName.toLowerCase().includes(filters.search)
-      || device.address.toLowerCase().includes(filters.search);
     const matchesStatus = !filters.status || device.status === filters.status;
     const matchesOnline = !filters.online
       || (filters.online === 'online' ? device.online : !device.online);
-    const matchesModel = !filters.model || device.model === filters.model;
     const matchesCountry = !filters.country || device.country === filters.country;
     const matchesProvince = !filters.province || device.province === filters.province;
     const matchesCity = !filters.city || device.city === filters.city;
 
     return (
-      matchesSearch
-      && matchesStatus
+      matchesStatus
       && matchesOnline
-      && matchesModel
       && matchesCountry
       && matchesProvince
       && matchesCity
@@ -71,22 +62,31 @@ export async function listOpsDevices(input: {
   const province = String(input.province || '').trim();
   const city = String(input.city || '').trim();
 
-  const filtered = applyDeviceFilters(
-    (await listOpsDeviceRows()).map((row) => mapDeviceRowToView(row)),
-    { search, status, online, model, country, province, city }
-  );
+  // Derived filters that can't be pushed to SQL (computed from raw columns)
+  const hasDerivedFilters = !!(status || online || country || province || city);
 
-  const total = filtered.length;
-  const offset = (page - 1) * pageSize;
-  const items = filtered.slice(offset, offset + pageSize);
+  if (hasDerivedFilters) {
+    // Fetch a larger page to account for post-filter attrition, then apply derived filters
+    const result = await paginatedOpsDevices(page, pageSize * 3, search, model);
+    const views = result.items.map((row) => mapDeviceRowToView(row));
+    const filtered = applyDerivedFilters(views, { status, online, country, province, city });
+
+    return {
+      items: filtered.slice(0, pageSize),
+      pagination: {
+        page,
+        pageSize,
+        total: filtered.length, // best-effort: only counts the fetched batch
+      },
+    };
+  }
+
+  // All filters pushed to SQL — efficient path
+  const result = await paginatedOpsDevices(page, pageSize, search, model);
 
   return {
-    items,
-    pagination: {
-      page,
-      pageSize,
-      total,
-    },
+    items: result.items.map((row) => mapDeviceRowToView(row)),
+    pagination: result.pagination,
   };
 }
 

@@ -1,6 +1,6 @@
 import { HttpError } from '../../../shared/http';
 import { normalizePage, normalizePageSize } from '../common/pagination';
-import { getOpsCommandRow, listOpsCommandRows } from './command-repository';
+import { getOpsCommandRow, paginatedOpsCommands } from './command-repository';
 
 export async function listOpsCommands(input: {
   page?: unknown;
@@ -15,27 +15,7 @@ export async function listOpsCommands(input: {
   const type = String(input.type || '').trim();
   const status = String(input.status || '').trim();
 
-  const filtered = (await listOpsCommandRows()).filter((row) => {
-    const matchesSearch = !search
-      || row.id.toLowerCase().includes(search)
-      || row.deviceSn.toLowerCase().includes(search)
-      || row.operatorName.toLowerCase().includes(search);
-    const matchesType = !type || row.commandType === type;
-    const matchesStatus = !status || row.status === status;
-    return matchesSearch && matchesType && matchesStatus;
-  });
-
-  const total = filtered.length;
-  const offset = (page - 1) * pageSize;
-
-  return {
-    items: filtered.slice(offset, offset + pageSize),
-    pagination: {
-      page,
-      pageSize,
-      total,
-    },
-  };
+  return paginatedOpsCommands(page, pageSize, search, type, status);
 }
 
 export async function getOpsCommand(commandId: string) {

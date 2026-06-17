@@ -1,4 +1,5 @@
 import { query } from '../../../database/client';
+import { paginatedQuery } from '../common/pagination';
 import { OPS_DEVICE_SELECT_SQL, type OpsDeviceRow } from '../devices/device-repository';
 
 export interface UserListRow {
@@ -35,38 +36,53 @@ export interface SharedDeviceRow {
   createdAt: string;
 }
 
+const USER_SELECT_FROM = `
+  SELECT
+    u.id AS "userId",
+    u.short_uid AS uid,
+    u.display_name AS "displayName",
+    u.primary_phone AS phone,
+    u.primary_email AS email,
+    u.status,
+    (
+      SELECT COUNT(*)::text
+      FROM devices d
+      WHERE d.owner_id = u.short_uid
+    ) AS "bindCount",
+    (
+      SELECT COUNT(*)::text
+      FROM device_shares ds
+      WHERE ds.user_id = u.short_uid
+    ) AS "shareCount",
+    (
+      SELECT MAX(ai.last_login_at)::text
+      FROM auth_identities ai
+      WHERE ai.user_pk = u.id
+    ) AS "lastLoginAt",
+    u.created_at AS "createdAt"
+  FROM users u
+`;
+
 export async function listOpsUserRows() {
   const result = await query<UserListRow>(
-    `
-      SELECT
-        u.id AS "userId",
-        u.short_uid AS uid,
-        u.display_name AS "displayName",
-        u.primary_phone AS phone,
-        u.primary_email AS email,
-        u.status,
-        (
-          SELECT COUNT(*)::text
-          FROM devices d
-          WHERE d.owner_id = u.short_uid
-        ) AS "bindCount",
-        (
-          SELECT COUNT(*)::text
-          FROM device_shares ds
-          WHERE ds.user_id = u.short_uid
-        ) AS "shareCount",
-        (
-          SELECT MAX(ai.last_login_at)::text
-          FROM auth_identities ai
-          WHERE ai.user_pk = u.id
-        ) AS "lastLoginAt",
-        u.created_at AS "createdAt"
-      FROM users u
-      ORDER BY u.created_at DESC
-    `
+    `${USER_SELECT_FROM} ORDER BY u.created_at DESC`
   );
 
   return result.rows;
+}
+
+export async function paginatedOpsUsers(page: number, pageSize: number, search: string, status: string) {
+  return paginatedQuery<UserListRow>(
+    {
+      selectFrom: USER_SELECT_FROM,
+      searchColumns: ['u.short_uid', 'u.display_name', 'COALESCE(u.primary_phone, \'\')', 'COALESCE(u.primary_email, \'\')'],
+      filterColumns: {
+        status: 'u.status',
+      },
+      orderBy: 'ORDER BY u.created_at DESC',
+    },
+    { page, pageSize, search, filters: { status } }
+  );
 }
 
 export async function getOpsUserRow(uid: string) {

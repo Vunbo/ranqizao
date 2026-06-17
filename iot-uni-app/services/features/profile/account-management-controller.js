@@ -1,5 +1,5 @@
 import { computed, ref } from 'vue'
-import { changePassword } from '../account'
+import { changePassword } from '../../remote/auth'
 import { createNotifier, formatErrorMessage } from '../common/controller-helpers'
 
 export function useAccountManagementController(options) {

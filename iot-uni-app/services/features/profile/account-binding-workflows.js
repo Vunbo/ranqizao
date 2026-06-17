@@ -9,7 +9,7 @@ import {
   sendPhoneBindCode,
   sendPhoneUnbindCode,
   unbindIdentity,
-} from '../account'
+} from '../../remote/auth'
 
 const THIRD_PARTY_BIND_CONFIG = {
   wechat: {

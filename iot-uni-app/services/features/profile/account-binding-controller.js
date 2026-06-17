@@ -1,5 +1,5 @@
 import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
-import { listAuthIdentities } from '../account'
+import { listAuthIdentities } from '../../remote/auth'
 import {
   buildIdentityCards,
   buildVerifyMethods,
