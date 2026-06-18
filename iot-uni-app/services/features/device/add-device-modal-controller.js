@@ -10,7 +10,7 @@ import {
   formatErrorMessage,
   hasDuplicateName,
   normalizeText,
-} from '../common/controller-helpers'
+} from '../../common/shared-helpers'
 import {
   buildEmptyPermissionDialog,
   buildPermissionDialog,
@@ -21,7 +21,7 @@ import {
   requestScanCode,
   resolveBindingLocation,
   resolveScanBindingMode,
-} from './add-device-modal.helpers'
+} from '../../common/location-helpers'
 
 export function useAddDeviceModalController(options) {
   const {

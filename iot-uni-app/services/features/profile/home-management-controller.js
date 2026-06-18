@@ -10,14 +10,14 @@ import {
   formatErrorMessage,
   hasDuplicateName,
   normalizeText,
-} from '../common/controller-helpers'
-import { getOwnerDisplayName, resolveHomeMemberDisplayName } from '../common/resource-helpers'
+} from '../../common/shared-helpers'
+import { getOwnerDisplayName, resolveHomeMemberDisplayName } from '../../common/resource-helpers'
 import {
   getDisplayInitial,
   getUserDisplayName,
   getUserShortUid,
   isOwnedByShortUid,
-} from '../common/user-helpers'
+} from '../../common/user-helpers'
 
 export function useHomeManagementController(options) {
   const {

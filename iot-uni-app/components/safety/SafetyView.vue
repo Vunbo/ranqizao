@@ -128,7 +128,7 @@
 <script setup>
 import AppIcon from '../ui/AppIcon.vue'
 import CardBox from '../ui/CardBox.vue'
-import { useSafetyViewController } from '../../services/features/safety/safety-view-controller'
+import { useSafetyController } from '../../services/features/safety/safety-controller'
 
 const props = defineProps({
   devices: {
@@ -153,7 +153,7 @@ const {
   selectDevice,
   dotClass,
   formatDate,
-} = useSafetyViewController({
+} = useSafetyController({
   props,
 })
 </script>

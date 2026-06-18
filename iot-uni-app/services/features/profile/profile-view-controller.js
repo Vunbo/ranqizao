@@ -6,12 +6,12 @@ import {
   createNotifier,
   formatErrorMessage,
   normalizeText,
-} from '../common/controller-helpers'
+} from '../../common/shared-helpers'
 import {
   getUserDisplayName,
   getUserShortUid,
   isOwnedByShortUid,
-} from '../common/user-helpers'
+} from '../../common/user-helpers'
 
 export function useProfileViewController(options) {
   const {

@@ -1,4 +1,4 @@
-import { normalizeText } from './controller-helpers'
+import { normalizeText } from './shared-helpers'
 
 export function getUserShortUid(user, fallback = '') {
   const uid = normalizeText(user && user.uid ? user.uid : '')

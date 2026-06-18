@@ -12,9 +12,9 @@ import {
   formatErrorMessage,
   hasDuplicateName,
   normalizeText,
-} from '../common/controller-helpers'
-import { buildSharedUsers } from '../common/resource-helpers'
-import { getUserShortUid, isOwnedByShortUid } from '../common/user-helpers'
+} from '../../common/shared-helpers'
+import { buildSharedUsers } from '../../common/resource-helpers'
+import { getUserShortUid, isOwnedByShortUid } from '../../common/user-helpers'
 import {
   buildFlameTransform,
   buildProgressRingSvg,
@@ -22,7 +22,7 @@ import {
   fireLevels,
   resolveFlameColor,
   resolveGlowColor,
-} from './device-detail.helpers'
+} from '../../common/device-helpers'
 
 export function useDeviceDetailController(options) {
   const {

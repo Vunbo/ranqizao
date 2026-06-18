@@ -3,7 +3,7 @@ import {
   createNotifier,
   formatErrorMessage,
   normalizeText,
-} from '../common/controller-helpers'
+} from '../../common/shared-helpers'
 import {
   getMerchantLandingPage,
   getMerchantSummary,

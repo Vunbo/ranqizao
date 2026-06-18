@@ -1,4 +1,4 @@
-import { normalizeText } from './controller-helpers'
+import { normalizeText } from './shared-helpers'
 
 export function resolveProfileDisplayName(profiles, uid) {
   const matchedProfile = (profiles || []).find((profile) => profile && profile.uid === uid)

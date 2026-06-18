@@ -10,14 +10,14 @@ import {
   createNotifier,
   formatErrorMessage,
   normalizeText,
-} from '../common/controller-helpers'
+} from '../../common/shared-helpers'
 import {
   buildDisplayMap,
   getOwnerDisplayName,
   resolveDeviceMemberDisplayName,
   resolveHomeMemberDisplayName,
-} from '../common/resource-helpers'
-import { getUserDisplayName, getUserShortUid, isOwnedByShortUid } from '../common/user-helpers'
+} from '../../common/resource-helpers'
+import { getUserDisplayName, getUserShortUid, isOwnedByShortUid } from '../../common/user-helpers'
 
 export function useSharingManagementController(options) {
   const {

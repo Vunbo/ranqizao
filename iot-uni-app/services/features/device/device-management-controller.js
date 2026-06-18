@@ -7,8 +7,8 @@ import {
   hasDuplicateName,
   normalizeCompareText,
   normalizeText,
-} from '../common/controller-helpers'
-import { getUserShortUid, isOwnedByShortUid } from '../common/user-helpers'
+} from '../../common/shared-helpers'
+import { getUserShortUid, isOwnedByShortUid } from '../../common/user-helpers'
 
 const filterTabs = [
   { id: 'all', label: '全部' },
