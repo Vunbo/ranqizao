@@ -1,4 +1,4 @@
-import { query, type DatabaseExecutor } from '../../../database/client';
+import { query, type DatabaseExecutor } from '../../../db/client';
 
 export interface OpsDeviceRow {
   id: string;

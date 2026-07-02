@@ -1,4 +1,4 @@
-import { query } from '../../database/client';
+import { query } from '../../db/client';
 import { HttpError } from '../../shared/http';
 import { toAuthUser } from './auth.helpers';
 import { getUserById } from './auth.repository';

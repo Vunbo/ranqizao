@@ -9,6 +9,7 @@
     "start": "tsx --env-file=.env.development src/index.ts",
     "start:test": "tsx --env-file=.env.test src/index.ts",
     "start:prod": "tsx --env-file=.env.production src/index.ts",
+    "start:docker": "tsx src/index.ts",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {

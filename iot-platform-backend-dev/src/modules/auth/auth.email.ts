@@ -1,5 +1,5 @@
 import bcrypt from 'bcryptjs';
-import { query, withTransaction } from '../../database/client';
+import { query, withTransaction } from '../../db/client';
 import { signAuthToken } from '../../shared/auth';
 import { HttpError } from '../../shared/http';
 import { normalizeEmail, toAuthUser } from './auth.helpers';

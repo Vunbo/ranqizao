@@ -1,6 +1,6 @@
 import { OAuth2Client } from 'google-auth-library';
 import { env } from '../../config/env';
-import { withTransaction } from '../../database/client';
+import { withTransaction } from '../../db/client';
 import { signAuthToken } from '../../shared/auth';
 import { HttpError } from '../../shared/http';
 import {

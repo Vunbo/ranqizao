@@ -1,7 +1,7 @@
 import type { AdminAuthUser } from '../../../shared/admin-auth';
-import { withTransaction } from '../../../database/client';
+import { withTransaction } from '../../../db/client';
 import { HttpError } from '../../../shared/http';
-import { normalizePage, normalizePageSize } from '../common/pagination';
+import { normalizePage, normalizePageSize } from '../_internal/pagination';
 import {
   MERCHANT_LEVEL_LABELS,
   normalizeMerchantPagePayload,

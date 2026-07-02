@@ -7,7 +7,7 @@ import {
   Send,
   Store,
 } from 'lucide-react';
-import { formatTime } from '../common/time';
+import { formatTime } from '../../common/time';
 import { MerchantContentEditor } from './MerchantContentEditor';
 import { MerchantFilterSelect } from './MerchantFilterSelect';
 import {

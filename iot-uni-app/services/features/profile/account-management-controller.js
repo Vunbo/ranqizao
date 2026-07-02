@@ -1,6 +1,6 @@
 import { computed, ref } from 'vue'
-import { changePassword } from '../account'
-import { createNotifier, formatErrorMessage } from '../common/controller-helpers'
+import { changePassword } from '../../gateway/auth'
+import { createNotifier, formatErrorMessage } from '../../helpers/shared-helpers'
 
 export function useAccountManagementController(options) {
   const { props, notify } = options

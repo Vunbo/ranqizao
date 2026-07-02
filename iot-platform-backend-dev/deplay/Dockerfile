@@ -10,4 +10,4 @@ COPY tsconfig.json ./
 
 EXPOSE 3001
 
-CMD ["npm", "run", "start"]
+CMD ["npx", "tsx", "src/index.ts"]

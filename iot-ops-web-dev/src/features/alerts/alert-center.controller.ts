@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
-import { api } from '../../lib/api';
-import type { OpsAlertListItem } from '../../types';
+import { alertsApi } from '../../lib/api-alerts';
+import type { OpsAlertListItem } from '../../lib/api-alerts';
 
 export function useAlertCenterController() {
   const [alerts, setAlerts] = useState<OpsAlertListItem[]>([]);
@@ -14,14 +14,11 @@ export function useAlertCenterController() {
     setLoading(true);
     setError('');
     try {
-      const query = new URLSearchParams();
-      query.set('page', '1');
-      query.set('pageSize', '100');
-      if (searchQuery) query.set('search', searchQuery);
-      if (levelFilter) query.set('level', levelFilter);
-      if (statusFilter) query.set('status', statusFilter);
-
-      const result = await api.get<{ items: OpsAlertListItem[] }>(`/ops/alerts?${query.toString()}`);
+      const result = await alertsApi.list({
+        search: searchQuery,
+        level: levelFilter,
+        status: statusFilter,
+      });
       setAlerts(result.items || []);
     } catch (requestError) {
       setError(requestError instanceof Error ? requestError.message : '鍛婅鍒楄〃鍔犺浇澶辫触');
@@ -46,7 +43,7 @@ export function useAlertCenterController() {
   const handleResolve = async (id: string) => {
     setError('');
     try {
-      await api.patch(`/ops/alerts/${id}/resolve`, { comment: '杩愮淮涓彴浜哄伐纭澶勭悊' });
+      await alertsApi.resolve(id, '运维中台人工确认处理');
       await fetchAlerts();
     } catch (requestError) {
       setError(requestError instanceof Error ? requestError.message : '鍛婅澶勭悊澶辫触');
@@ -56,7 +53,7 @@ export function useAlertCenterController() {
   const handleMarkAsFalsePositive = async (id: string) => {
     setError('');
     try {
-      await api.patch(`/ops/alerts/${id}/false-positive`, { comment: '杩愮淮涓彴鏍囪涓鸿鎶?' });
+      await alertsApi.markFalsePositive(id, '运维中台标记为误报');
       await fetchAlerts();
     } catch (requestError) {
       setError(requestError instanceof Error ? requestError.message : '鍛婅鏍囪澶辫触');

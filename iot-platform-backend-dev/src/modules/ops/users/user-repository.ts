@@ -1,4 +1,4 @@
-import { query } from '../../../database/client';
+import { query } from '../../../db/client';
 import { OPS_DEVICE_SELECT_SQL, type OpsDeviceRow } from '../devices/device-repository';
 
 export interface UserListRow {

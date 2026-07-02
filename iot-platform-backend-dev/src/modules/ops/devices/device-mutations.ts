@@ -1,5 +1,5 @@
 import { randomUUID } from 'crypto';
-import { withTransaction } from '../../../database/client';
+import { withTransaction } from '../../../db/client';
 import { HttpError } from '../../../shared/http';
 import { getOpsDeviceRow } from './device-repository';
 

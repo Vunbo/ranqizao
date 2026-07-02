@@ -1,27 +1,31 @@
 import { computed, onBeforeUnmount, ref, watch } from 'vue'
 import {
-  bindScannedDevice,
-  createDevice,
-  scanBindableDevice,
-} from '../device'
+  remoteDeviceService,
+} from '../../api/devices'
+
+const scanBindableDevice = (qrCode) => remoteDeviceService.scanBindable(qrCode)
+const createDevice = (payload) => remoteDeviceService.create(payload)
+const bindScannedDevice = (payload) => remoteDeviceService.bindScanned(payload)
 import {
   createCallbackTrigger,
   createNotifier,
   formatErrorMessage,
   hasDuplicateName,
   normalizeText,
-} from '../../common/shared-helpers'
+} from '../../helpers/shared-helpers'
 import {
   buildEmptyPermissionDialog,
   buildPermissionDialog,
   isPermissionDenied,
   isUserCanceled,
+  resolveScanBindingMode,
+} from '../../helpers/location-helpers'
+import {
   openSystemPermissionSettings,
   requestCurrentLocation,
   requestScanCode,
   resolveBindingLocation,
-  resolveScanBindingMode,
-} from '../../common/location-helpers'
+} from '../../location/location-service'
 
 export function useAddDeviceModalController(options) {
   const {

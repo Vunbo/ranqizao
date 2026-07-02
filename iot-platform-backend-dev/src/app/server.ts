@@ -1,7 +1,7 @@
 import { networkInterfaces } from 'os';
 import type { Server } from 'http';
 import { env } from '../config/env';
-import { bootstrapDatabase } from '../database/bootstrap';
+import { bootstrapDatabase } from '../db/bootstrap';
 import { createApp } from './createApp';
 
 function collectAccessibleUrls() {

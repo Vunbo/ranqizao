@@ -22,8 +22,8 @@ compact_force_ratio = 0.9   # force compacting at this high-water mark
 # recent_keep         = 2   # minimum recent messages kept verbatim
 cold_resume_prune   = true   # elide stale tool results when reopening a session past the provider cache window
 # planner_model = "mimo"   # optional: enable two-model collaboration
-subagent_model = "deepseek-pro"   # 子任务默认用 pro（兜底）
-subagent_models = { review = "deepseek-pro" }   # review 显式指定用 pro
+subagent_model = "deepseek-pro"   # default model for runAs=subagent skills
+subagent_models = { review = "deepseek-pro" }   # per-skill overrides
 # subagent_effort = "high"   # optional default effort for subagents
 # subagent_efforts = { review = "max", task = "high" }   # per-tool/skill effort overrides
 # output_style = "explanatory"   # explanatory | learning | concise | custom; empty = default
@@ -54,7 +54,7 @@ enabled = true   # language server tools; servers launch lazily when used
 # Rules are "Tool" or "Tool(specifier)"; e.g. Bash(go test:*), Edit(src/**).
 mode  = "ask"
 # deny = ["Bash(rm -rf*)", "Bash(git push*)"]   # hard-blocked in every mode
-allow = ["run_skill"]
+allow = ["run_skill", "Bash(Test-Path \"iot-platform-backend-dev/src/database\"; Test-Path \"iot-platform-backend-dev/src/modules/ops/common\")", "Bash(Test-Path \"iot-uni-app/services/_backup\":*)", "Bash(Rename-Item \"iot-platform-backend-dev/src/db/bootstrap\":*)", "Bash(Test-Path \"iot-platform-backend-dev/package-lock.json\":*)", "Edit", "Bash(cd \"iot-platform-backend-dev\" ; node -e \"const p = require('./package.json'); Object.entries(p.scripts).forEach(([k,v]) => console.log(k + ' -> ' + v))\")", "Bash(cd \"iot-platform-backend-dev\" ; npx tsc --noEmit 2>&1)", "Bash(Test-Path \"iot-platform-backend-dev/.dockerignore\":*)", "Bash(Test-Path \"iot-platform-backend-dev/deplay/docker-compose.with-postgres.yml\"; Test-Path \"iot-platform-backend-dev/deplay/docker-compose.without-postgres.yml\"; Test-Path \"iot-platform-backend-dev/deplay/docker-compose.with-postgres-nginx.yml\")", "Bash(Select-String \"^MODE=\":*)", "Bash(npx skills@latest add mattpocock/skills 2>&1)", "Bash(npx skills@latest add mattpocock/skills -y 2>&1)", "Bash(git remote:*)", "Bash(Get-ChildItem -Path:*)"]
 # ask = ["Edit(src/**)"]   # force a prompt even if otherwise allowed
 
 [sandbox]

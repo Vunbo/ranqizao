@@ -6,13 +6,8 @@ import {
   ChevronRight,
   MapPin,
 } from 'lucide-react';
-import { clsx, type ClassValue } from 'clsx';
-import { twMerge } from 'tailwind-merge';
 import type { LocationTreeNode } from './dashboard.types';
-
-function cn(...inputs: ClassValue[]) {
-  return twMerge(clsx(inputs));
-}
+import { cn } from '../../lib/cn';
 
 export function Cascader({
   locationTree,

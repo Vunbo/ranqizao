@@ -1,20 +1,22 @@
 import { computed, ref, watch } from 'vue'
 import {
-  createDeviceLog,
-  removeDevice,
-  shareDevice,
-  unshareDevice,
-  updateDevice,
-} from '../device'
+  remoteDeviceService,
+} from '../../api/devices'
+
+const createDeviceLog = (...args) => remoteDeviceService.createLog(...args)
+const removeDevice = (...args) => remoteDeviceService.remove(...args)
+const shareDevice = (...args) => remoteDeviceService.share(...args)
+const unshareDevice = (...args) => remoteDeviceService.unshare(...args)
+const updateDevice = (...args) => remoteDeviceService.update(...args)
 import {
   createCallbackTrigger,
   createNotifier,
   formatErrorMessage,
   hasDuplicateName,
   normalizeText,
-} from '../../common/shared-helpers'
-import { buildSharedUsers } from '../../common/resource-helpers'
-import { getUserShortUid, isOwnedByShortUid } from '../../common/user-helpers'
+} from '../../helpers/shared-helpers'
+import { buildSharedUsers } from '../../helpers/resource-helpers'
+import { getUserShortUid, isOwnedByShortUid } from '../../helpers/user-helpers'
 import {
   buildFlameTransform,
   buildProgressRingSvg,
@@ -22,7 +24,7 @@ import {
   fireLevels,
   resolveFlameColor,
   resolveGlowColor,
-} from '../../common/device-helpers'
+} from '../../helpers/device-helpers'
 
 export function useDeviceDetailController(options) {
   const {

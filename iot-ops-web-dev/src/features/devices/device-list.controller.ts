@@ -1,6 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { api } from '../../lib/api';
-import type { OpsDeviceItem } from '../../types';
+import { devicesApi, type OpsDeviceItem } from '../../lib/api-devices';
 
 export function useDeviceListController() {
   const [devices, setDevices] = useState<OpsDeviceItem[]>([]);
@@ -18,14 +17,11 @@ export function useDeviceListController() {
       setLoading(true);
       setError('');
       try {
-        const query = new URLSearchParams();
-        query.set('page', '1');
-        query.set('pageSize', '100');
-        if (searchTerm) query.set('search', searchTerm);
-        if (statusFilter) query.set('status', statusFilter);
-        if (modelFilter) query.set('model', modelFilter);
-
-        const result = await api.get<{ items: OpsDeviceItem[] }>(`/ops/devices?${query.toString()}`);
+        const result = await devicesApi.list({
+          search: searchTerm,
+          status: statusFilter,
+          model: modelFilter,
+        });
         if (!controller.signal.aborted) {
           setDevices(result.items || []);
         }

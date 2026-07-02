@@ -1,4 +1,4 @@
-import { withTransaction } from '../../database/client';
+import { withTransaction } from '../../db/client';
 import { HttpError } from '../../shared/http';
 import { getUserById } from '../auth/auth.repository';
 import {

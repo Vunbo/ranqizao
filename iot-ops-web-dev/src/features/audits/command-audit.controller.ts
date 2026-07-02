@@ -1,6 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { api } from '../../lib/api';
-import type { OpsCommandAuditItem } from '../../types';
+import { commandsApi, type OpsCommandAuditItem } from '../../lib/api-commands';
 
 export function useCommandAuditController() {
   const [searchQuery, setSearchQuery] = useState('');
@@ -14,14 +13,11 @@ export function useCommandAuditController() {
     setLoading(true);
     setError('');
     try {
-      const query = new URLSearchParams();
-      query.set('page', '1');
-      query.set('pageSize', '100');
-      if (searchQuery) query.set('search', searchQuery);
-      if (typeFilter) query.set('type', typeFilter);
-      if (statusFilter) query.set('status', statusFilter);
-
-      const result = await api.get<{ items: OpsCommandAuditItem[] }>(`/ops/commands?${query.toString()}`);
+      const result = await commandsApi.list({
+        search: searchQuery,
+        type: typeFilter,
+        status: statusFilter,
+      });
       setCommands(result.items || []);
     } catch (requestError) {
       setError(requestError instanceof Error ? requestError.message : '瀹¤鏃ュ織鍔犺浇澶辫触');

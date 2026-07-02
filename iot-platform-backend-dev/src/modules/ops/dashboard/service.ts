@@ -1,4 +1,4 @@
-import { deriveDeviceStatus, deriveOnline, normalizeLocation } from '../common/device-view';
+import { deriveDeviceStatus, deriveOnline, normalizeLocation } from '../_internal/device-view';
 import { countPendingAlerts, listDashboardDeviceRows } from './dashboard-repository';
 
 export async function getOpsDashboardSummary() {

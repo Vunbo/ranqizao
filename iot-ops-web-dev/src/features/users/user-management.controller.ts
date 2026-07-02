@@ -1,6 +1,5 @@
 import { useEffect, useState } from 'react';
-import { api } from '../../lib/api';
-import type { OpsShareItem, OpsUserDetailResponse, OpsUserListItem } from '../../types';
+import { usersApi, sharesApi, type OpsShareItem, type OpsUserDetailResponse, type OpsUserListItem } from '../../lib/api-users';
 import type { UserManagementTab } from './user-management.types';
 
 export function useUserManagementController() {
@@ -22,23 +21,17 @@ export function useUserManagementController() {
       setError('');
       try {
         if (activeTab === 'users') {
-          const query = new URLSearchParams();
-          query.set('page', '1');
-          query.set('pageSize', '100');
-          if (searchQuery) query.set('search', searchQuery);
-          if (statusFilter) query.set('status', statusFilter);
-          const result = await api.get<{ items: OpsUserListItem[] }>(`/ops/users?${query.toString()}`);
+          const result = await usersApi.list({
+            search: searchQuery,
+            status: statusFilter,
+          });
           if (!controller.signal.aborted) {
             setUsers(result.items || []);
           }
           return;
         }
 
-        const query = new URLSearchParams();
-        query.set('page', '1');
-        query.set('pageSize', '100');
-        if (searchQuery) query.set('search', searchQuery);
-        const result = await api.get<{ items: OpsShareItem[] }>(`/ops/shares?${query.toString()}`);
+        const result = await sharesApi.list({ search: searchQuery });
         if (!controller.signal.aborted) {
           setShares(result.items || []);
         }
@@ -61,7 +54,7 @@ export function useUserManagementController() {
     setDetailLoading(true);
     setError('');
     try {
-      const result = await api.get<OpsUserDetailResponse>(`/ops/users/${uid}`);
+      const result = await usersApi.detail(uid);
       setSelectedUser(result);
     } catch (requestError) {
       setError(requestError instanceof Error ? requestError.message : '鐢ㄦ埛璇︽儏鍔犺浇澶辫触');

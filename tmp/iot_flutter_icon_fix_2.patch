@@ -1,0 +1,56 @@
+*** Begin Patch
+*** Update File: D:/Desktop/ranqizao/iot-app-flutter/test/widgets/bottom_nav_test.dart
+@@
+-    final homeLabel = find.text('棣栭〉');
++    final homeLabel = find.text('首页');
+@@
+     expect((labelCenter.dx - tabCenter.dx).abs(), lessThanOrEqualTo(12));
+   });
++
++  testWidgets('tab touch targets are large enough for reliable tapping', (
++    tester,
++  ) async {
++    await tester.binding.setSurfaceSize(const Size(390, 844));
++    addTearDown(() => tester.binding.setSurfaceSize(null));
++
++    await tester.pumpWidget(
++      MaterialApp(
++        home: Scaffold(
++          bottomNavigationBar: BottomNav(
++            activeTab: 'home',
++            onChange: (_) {},
++          ),
++        ),
++      ),
++    );
++    await tester.pumpAndSettle();
++
++    final firstTabSize = tester.getSize(find.byType(GestureDetector).first);
++
++    expect(firstTabSize.height, greaterThanOrEqualTo(58));
++    expect(firstTabSize.width, greaterThanOrEqualTo(80));
++  });
+ }
+*** Add File: D:/Desktop/ranqizao/iot-app-flutter/test/widgets/app_icon_test.dart
++import 'package:flutter_test/flutter_test.dart';
++import 'package:iot_app_flutter/core/theme.dart';
++import 'package:iot_app_flutter/widgets/app_icon.dart';
++
++void main() {
++  test('decimal stroke widths map to the existing icon asset naming rule', () {
++    expect(
++      buildIconAssetPath(
++        name: 'flame',
++        color: AppColors.primary,
++        filled: false,
++        strokeWidth: 2.5,
++      ),
++      'assets/icons/flame-f97316-f0-s2_5.svg',
++    );
++  });
++}
+*** Add File: D:/Desktop/ranqizao/iot-app-flutter/assets/icons/flame-10b981-f0-s2.svg
++<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#10b981" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3q1 4 4 6.5t3 5.5a1 1 0 0 1-14 0 5 5 0 0 1 1-3 1 1 0 0 0 5 0c0-2-1.5-3-1.5-5q0-2 2.5-4" /></svg>
+*** Add File: D:/Desktop/ranqizao/iot-app-flutter/assets/icons/flame-475569-f0-s2.svg
++<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#475569" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3q1 4 4 6.5t3 5.5a1 1 0 0 1-14 0 5 5 0 0 1 1-3 1 1 0 0 0 5 0c0-2-1.5-3-1.5-5q0-2 2.5-4" /></svg>
+*** End Patch

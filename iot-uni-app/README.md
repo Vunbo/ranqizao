@@ -18,20 +18,12 @@ uni-app 统一只保留三套正式环境文件：
 - `.env.test`
 - `.env.production`
 
-当前运行时配置统一由 `config/runtime.js` 读取，优先级如下：
+当前运行时配置统一由 `config/runtime.js` 中的 `getRuntimeConfig()` 读取，
+优先从 `import.meta.env.VITE_*` 获取，缺失时使用内置默认值：
 
-1. `VITE_*`
-2. `VUE_APP_*`
-
-关键变量：
+关键变量（均在 `.env.*` 文件中配置 `VITE_*` 前缀）：
 
 - `VITE_API_BASE_URL`
-- `VUE_APP_API_BASE_URL`
-- `VITE_MINI_PROGRAM_LOGIN_PATH`
-- `VITE_WECHAT_APP_LOGIN_PATH`
-- `VITE_BIND_WECHAT_APP_PATH`
-- `VITE_GOOGLE_APP_LOGIN_PATH`
-- `VITE_BIND_GOOGLE_APP_PATH`
 
 ## 约束
 

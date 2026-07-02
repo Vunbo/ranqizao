@@ -2,7 +2,7 @@ import { randomUUID } from 'crypto';
 import {
   query,
   type DatabaseExecutor,
-} from '../../database/client';
+} from '../../db/client';
 import { MERCHANT_PAGE_KEY, normalizeMerchantPagePayload } from './merchant.content';
 import type {
   MerchantApplicationStatus,

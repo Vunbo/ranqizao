@@ -1,5 +1,5 @@
-import { remoteAuthService } from '../remote/auth'
-import { clearStoredSession, getAuthToken } from '../session/store'
+import { remoteAuthService } from '../api/auth'
+import { clearStoredSession, getAuthToken } from '../store/store'
 
 function normalizePlainObject(value) {
   if (!value || typeof value !== 'object') {

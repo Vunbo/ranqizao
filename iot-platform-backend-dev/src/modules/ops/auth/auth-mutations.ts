@@ -1,4 +1,4 @@
-import { query } from '../../../database/client';
+import { query } from '../../../db/client';
 
 export async function markAdminLogin(adminId: string) {
   await query(

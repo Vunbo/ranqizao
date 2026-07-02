@@ -1,7 +1,7 @@
 import cors from 'cors';
 import express from 'express';
 import { env } from '../config/env';
-import { query } from '../database/client';
+import { query } from '../db/client';
 import { authRouter } from '../modules/auth/router';
 import { devicesRouter } from '../modules/devices/router';
 import { homesRouter } from '../modules/homes/router';

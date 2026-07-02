@@ -1,7 +1,7 @@
 import {
   query,
   type DatabaseExecutor,
-} from '../../database/client';
+} from '../../db/client';
 import { HttpError } from '../../shared/http';
 
 export interface DeviceAccessRow {
@@ -52,6 +52,7 @@ export interface DeviceLogRow {
   id: string;
   stoveId: string;
   ownerId: string;
+  displayName: string;
   event: string;
   type: string;
   createdAt: string | Date;
@@ -334,15 +335,17 @@ export async function listDeviceLogsByDeviceId(deviceId: string) {
   const result = await query<DeviceLogRow>(
     `
       SELECT
-        id,
-        stove_id AS "stoveId",
-        owner_id AS "ownerId",
-        event,
-        type,
-        created_at AS "createdAt"
-      FROM operation_logs
-      WHERE stove_id = $1
-      ORDER BY created_at DESC
+        ol.id,
+        ol.stove_id AS "stoveId",
+        ol.owner_id AS "ownerId",
+        u.display_name AS "displayName",
+        ol.event,
+        ol.type,
+        ol.created_at AS "createdAt"
+      FROM operation_logs ol
+      LEFT JOIN users u ON u.short_uid = ol.owner_id
+      WHERE ol.stove_id = $1
+      ORDER BY ol.created_at DESC
       LIMIT 100
     `,
     [deviceId]

@@ -53,6 +53,11 @@
           :user="user"
         />
 
+        <!-- 商城页面 -->
+        <view v-else-if="activeTab === 'mall'" class="mall-tab">
+          <mall-webview @go-home="goHome" />
+        </view>
+
         <profile-view
           v-else
           :user="user"
@@ -94,16 +99,21 @@ import AddDeviceModal from '../device/AddDeviceModal.vue'
 import DeviceDetailView from '../device/DeviceDetailView.vue'
 import HomeView from '../home/HomeView.vue'
 import BottomNavigation from '../navigation/BottomNavigation.vue'
+import MallWebview from '../mall/MallWebview.vue'
 import ProfileView from '../profile/ProfileView.vue'
 import SafetyView from '../safety/SafetyView.vue'
 import AppIcon from '../ui/AppIcon.vue'
 import ConfirmDialog from '../ui/ConfirmDialog.vue'
 import ToastBar from '../ui/ToastBar.vue'
-import { useAppShellController } from '../../services/app/shell-controller'
+import { useAppShellController } from '../../services/controllers/shell-controller'
 
 const toast = ref(null)
 const toastTimer = ref(null)
 const confirmDialog = ref(null)
+
+function goHome() {
+  activeTab.value = 'home'
+}
 const {
   authReady,
   user,
@@ -131,6 +141,7 @@ const {
 } = useAppShellController({
   onToast: openToast,
 })
+
 
 onMounted(() => {
   bootstrapSession()
@@ -217,5 +228,15 @@ defineExpose({
   align-items: center;
   justify-content: center;
   min-height: 100vh;
+}
+
+/* 商城 tab 容器 — 脱离 content-shell padding */
+.mall-tab {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  padding: 0;
 }
 </style>

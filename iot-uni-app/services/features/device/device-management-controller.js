@@ -1,5 +1,8 @@
 import { computed, ref } from 'vue'
-import { removeDevice, updateDevice } from '../device'
+import { remoteDeviceService } from '../../api/devices'
+
+const removeDevice = (...args) => remoteDeviceService.remove(...args)
+const updateDevice = (...args) => remoteDeviceService.update(...args)
 import {
   createCallbackTrigger,
   createNotifier,
@@ -7,8 +10,8 @@ import {
   hasDuplicateName,
   normalizeCompareText,
   normalizeText,
-} from '../../common/shared-helpers'
-import { getUserShortUid, isOwnedByShortUid } from '../../common/user-helpers'
+} from '../../helpers/shared-helpers'
+import { getUserShortUid, isOwnedByShortUid } from '../../helpers/user-helpers'
 
 const filterTabs = [
   { id: 'all', label: '全部' },

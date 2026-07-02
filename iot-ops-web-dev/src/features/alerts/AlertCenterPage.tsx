@@ -8,7 +8,7 @@ import {
   EyeOff,
   RefreshCw
 } from 'lucide-react';
-import { formatTime } from '../common/time';
+import { formatTime } from '../../common/time';
 import { useAlertCenterController } from './alert-center.controller';
 const AlertBadge = ({ level }: { level: string }) => {
   const styles: Record<string, string> = {

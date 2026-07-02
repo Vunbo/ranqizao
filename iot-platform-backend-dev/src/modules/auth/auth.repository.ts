@@ -1,5 +1,5 @@
 import { randomUUID } from 'crypto';
-import { query, type DatabaseExecutor } from '../../database/client';
+import { query, type DatabaseExecutor } from '../../db/client';
 import { HttpError } from '../../shared/http';
 import { createShortUid, normalizeEmail } from './auth.helpers';
 import type {

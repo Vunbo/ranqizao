@@ -1,6 +1,6 @@
 import { HttpError } from '../../../shared/http';
-import { mapDeviceRowToView } from '../common/device-view';
-import { normalizePage, normalizePageSize } from '../common/pagination';
+import { mapDeviceRowToView } from '../_internal/device-view';
+import { normalizePage, normalizePageSize } from '../_internal/pagination';
 import {
   getOpsUserRow,
   listBoundDeviceRowsForUser,

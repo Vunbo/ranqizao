@@ -1,5 +1,5 @@
 import bcrypt from 'bcryptjs';
-import { query, withTransaction } from '../../database/client';
+import { query, withTransaction } from '../../db/client';
 import { HttpError } from '../../shared/http';
 import { normalizePhone } from './auth.helpers';
 import { consumePhoneVerificationCode } from './auth.phone';

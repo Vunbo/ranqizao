@@ -97,6 +97,7 @@
             <view class="safety-view__log-dot" :class="log.type === 'warning' ? 'safety-view__log-dot--warning' : 'safety-view__log-dot--danger'"></view>
             <view class="safety-view__log-copy">
               <text class="safety-view__log-event">{{ log.event }}</text>
+              <text class="safety-view__log-user">{{ log.displayName }}</text>
               <text class="safety-view__log-time">{{ log.time }}</text>
             </view>
           </view>
@@ -116,6 +117,7 @@
             <view class="safety-view__log-dot" :class="dotClass(log.type)"></view>
             <view class="safety-view__log-copy">
               <text class="safety-view__log-event">{{ log.event }}</text>
+              <text class="safety-view__log-user">{{ log.displayName }}</text>
               <text class="safety-view__log-time">{{ formatDate(log.createdAt) }}</text>
             </view>
           </view>
@@ -468,6 +470,13 @@ const {
   font-size: 12px;
   font-weight: 600;
   color: #0f172a;
+}
+
+.safety-view__log-user {
+  display: block;
+  margin-top: 2px;
+  font-size: 10px;
+  color: #64748b;
 }
 
 .safety-view__log-time {

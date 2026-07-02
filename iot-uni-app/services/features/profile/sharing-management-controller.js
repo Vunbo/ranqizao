@@ -1,23 +1,24 @@
 import { computed, ref } from 'vue'
-import {
-  addHomeMember,
-  removeHomeMembers,
-  shareDevice,
-  unshareDevice,
-} from '../sharing'
+import { remoteDeviceService } from '../../api/devices'
+import { remoteHomeService } from '../../api/homes'
+
+const shareDevice = (...args) => remoteDeviceService.share(...args)
+const unshareDevice = (...args) => remoteDeviceService.unshare(...args)
+const addHomeMember = (...args) => remoteHomeService.addMember(...args)
+const removeHomeMembers = (...args) => remoteHomeService.removeMembers(...args)
 import {
   createCallbackTrigger,
   createNotifier,
   formatErrorMessage,
   normalizeText,
-} from '../../common/shared-helpers'
+} from '../../helpers/shared-helpers'
 import {
   buildDisplayMap,
   getOwnerDisplayName,
   resolveDeviceMemberDisplayName,
   resolveHomeMemberDisplayName,
-} from '../../common/resource-helpers'
-import { getUserDisplayName, getUserShortUid, isOwnedByShortUid } from '../../common/user-helpers'
+} from '../../helpers/resource-helpers'
+import { getUserDisplayName, getUserShortUid, isOwnedByShortUid } from '../../helpers/user-helpers'
 
 export function useSharingManagementController(options) {
   const {

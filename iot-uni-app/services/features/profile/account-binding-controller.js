@@ -1,11 +1,11 @@
 import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
-import { listAuthIdentities } from '../account'
+import { listAuthIdentities } from '../../gateway/auth'
 import {
   buildIdentityCards,
   buildVerifyMethods,
   createCountdownTimer,
   formatCountdownText,
-} from './account-binding-helpers'
+} from '../../helpers/auth-helpers'
 import {
   runEmailBindFlow,
   runPhoneBindFlow,

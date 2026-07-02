@@ -8,7 +8,7 @@ import {
   Clock,
   RefreshCw
 } from 'lucide-react';
-import { formatTime } from '../common/time';
+import { formatTime } from '../../common/time';
 import { useCommandAuditController } from './command-audit.controller';
 
 export const CommandAudit = () => {

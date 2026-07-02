@@ -1,7 +1,7 @@
 import { randomUUID } from 'crypto';
 import bcrypt from 'bcryptjs';
 import { env } from '../../config/env';
-import { query, withTransaction } from '../../database/client';
+import { query, withTransaction } from '../../db/client';
 import { signAuthToken } from '../../shared/auth';
 import { HttpError } from '../../shared/http';
 import { createPhoneCode, normalizePhone, toAuthUser } from './auth.helpers';

@@ -1,13 +1,10 @@
+import { getAuthToken } from '../store/store'
 import { getRuntimeConfig } from '../../config/runtime'
-import { getAuthToken } from '../session/store'
-
-function resolveApiBaseUrl() {
-  return String(getRuntimeConfig().apiBaseUrl).replace(/\/$/, '')
-}
 
 export function request(path, options = {}) {
   const token = getAuthToken()
-  const requestUrl = `${resolveApiBaseUrl()}${path}`
+  const baseUrl = getRuntimeConfig().apiBaseUrl
+  const requestUrl = `${baseUrl}${path}`
   const headers = Object.assign(
     {
       'Content-Type': 'application/json',

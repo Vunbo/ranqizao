@@ -1,17 +1,19 @@
 import { computed, ref } from 'vue'
-import { updateCurrentUserProfile } from '../account'
-import { getMerchantSummary } from '../merchant'
+import { updateCurrentUserProfile } from '../../gateway/auth'
+import { remoteMerchantService } from '../../api/merchant'
+
+const getMerchantSummary = (...args) => remoteMerchantService.getSummary(...args)
 import {
   createCallbackTrigger,
   createNotifier,
   formatErrorMessage,
   normalizeText,
-} from '../../common/shared-helpers'
+} from '../../helpers/shared-helpers'
 import {
   getUserDisplayName,
   getUserShortUid,
   isOwnedByShortUid,
-} from '../../common/user-helpers'
+} from '../../helpers/user-helpers'
 
 export function useProfileViewController(options) {
   const {

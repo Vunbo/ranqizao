@@ -1,5 +1,5 @@
 import { randomUUID } from 'crypto';
-import { query } from '../../database/client';
+import { query } from '../../db/client';
 
 export async function createHomeRecord(input: { ownerId: string; name: string }) {
   const result = await query(

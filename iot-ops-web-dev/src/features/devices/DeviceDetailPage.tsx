@@ -14,7 +14,7 @@ import {
   Power
 } from 'lucide-react';
 import { OPS_ROUTES } from '../../router/routes';
-import { formatTime } from '../common/time';
+import { formatTime } from '../../common/time';
 import { useDeviceDetailController } from './device-detail.controller';
 export const DeviceDetail = () => {
   const { id } = useParams();

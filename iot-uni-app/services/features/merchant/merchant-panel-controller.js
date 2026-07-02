@@ -2,8 +2,10 @@ import { computed, onMounted, ref } from 'vue'
 import {
   createNotifier,
   formatErrorMessage,
-} from '../common/controller-helpers'
-import { getMerchantPanel } from '../merchant'
+} from '../../helpers/shared-helpers'
+import { remoteMerchantService } from '../../api/merchant'
+
+const getMerchantPanel = (...args) => remoteMerchantService.getPanel(...args)
 
 export function useMerchantPanelController(options = {}) {
   const { notify } = options

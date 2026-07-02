@@ -1,7 +1,8 @@
 import { useEffect, useMemo, useState } from 'react';
 import * as echarts from 'echarts';
+import { dashboardApi, type OpsSummary } from '../../lib/api-dashboard';
+import type { OpsDeviceItem } from '../../lib/api-devices';
 import { api } from '../../lib/api';
-import type { OpsDeviceItem, OpsSummary } from '../../types';
 import { DEFAULT_MAP_ZOOM, MAP_SOURCES, tryLoadMap } from './dashboard.map';
 import type {
   DashboardDevice,
@@ -106,7 +107,7 @@ export function useDashboardController() {
       setError('');
 
       try {
-        const summaryResponse = await api.get<{ summary: OpsSummary }>('/ops/dashboard/summary');
+        const summaryResponse = await dashboardApi.summary();
         if (cancelled) {
           return;
         }

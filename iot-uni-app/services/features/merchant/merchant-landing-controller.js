@@ -3,12 +3,12 @@ import {
   createNotifier,
   formatErrorMessage,
   normalizeText,
-} from '../../common/shared-helpers'
-import {
-  getMerchantLandingPage,
-  getMerchantSummary,
-  submitMerchantApplication,
-} from '../merchant'
+} from '../../helpers/shared-helpers'
+import { remoteMerchantService } from '../../api/merchant'
+
+const getMerchantLandingPage = (...args) => remoteMerchantService.getPage(...args)
+const getMerchantSummary = (...args) => remoteMerchantService.getSummary(...args)
+const submitMerchantApplication = (...args) => remoteMerchantService.submitApplication(...args)
 
 const LEVEL_OPTIONS = [
   { value: 'operations_center', label: '运营中心' },

@@ -1,8 +1,8 @@
 # iot-platform-backend Docker 部署说明
 
-本文档适用于 `deplay` 已经迁移到 `iot-platform-backend-dev` 项目内部后的目录结构。
+本文档适用于 `deplay/` 目录下的 Docker 部署文件。
 
-推荐在服务器上保持以下结构：
+## 服务器目录结构
 
 ```text
 /srv/ranqizao/
@@ -10,10 +10,15 @@
     |-- deplay/
     |   |-- Dockerfile
     |   |-- Dockerfile.dockerignore
-    |   |-- docker-compose.external-db.yml
     |   |-- docker-compose.with-postgres.yml
+    |   |-- docker-compose.without-postgres.yml
+    |   |-- docker-compose.with-postgres-nginx.yml
+    |   |-- backend.env.docker-postgres
     |   |-- backend.env.external-db
-    |   `-- backend.env.docker-postgres
+    |   |-- nginx.conf
+    |   |-- nginx.docker.conf
+    |   |-- deploy.sh
+    |   `-- README-后端Docker部署.md
     |-- package.json
     |-- package-lock.json
     |-- src/
@@ -22,215 +27,186 @@
 
 请在 `iot-platform-backend-dev` 项目根目录执行本文档中的 `docker compose` 命令。
 
-如果服务器目录不同，需要同步检查 compose 文件中的这些字段：
-
-- `build.context`
-- `build.dockerfile`
-- `env_file`
-
-当前 compose 配置为：
-
-```yaml
-build:
-  context: ..
-  dockerfile: deplay/Dockerfile
-```
-
-这是因为 compose 文件位于 `iot-platform-backend-dev/deplay/`，后端构建上下文需要指向项目根目录 `iot-platform-backend-dev/`。
-
 ## 文件说明
 
-- `Dockerfile`
-  后端镜像构建文件。
-- `Dockerfile.dockerignore`
-  Dockerfile 专用忽略文件，避免把 `node_modules`、本地日志、部署密钥文件等内容发送到 Docker 构建上下文。
-- `docker-compose.external-db.yml`
-  已有外部 PostgreSQL 时使用。
-- `docker-compose.with-postgres.yml`
-  后端和 PostgreSQL 都通过 Docker 启动时使用。
-- `backend.env.external-db`
-  外部 PostgreSQL 模式使用的环境变量文件。
-- `backend.env.docker-postgres`
-  Docker 内置 PostgreSQL 模式使用的环境变量文件。
-- `.dockerignore`
-  旧布局下的构建忽略文件。当前 Dockerfile 位于 `deplay/` 内，Docker 会优先使用 `Dockerfile.dockerignore`。
+| 文件 | 说明 |
+|------|------|
+| `Dockerfile` | 后端镜像构建，**默认以生产模式启动**（`npm run start:prod`） |
+| `Dockerfile.dockerignore` | 构建时排除 node_modules、本地 .env 文件等 |
+| `docker-compose.with-postgres.yml` | 后端 + PostgreSQL 都通过 Docker 启动 |
+| `docker-compose.without-postgres.yml` | 仅后端，连接外部 PostgreSQL |
+| `docker-compose.with-postgres-nginx.yml` | 后端 + PostgreSQL + Nginx（80 端口） |
+| `backend.env.docker-postgres` | 内置 PostgreSQL 模式的环境变量 |
+| `backend.env.external-db` | 外部 PostgreSQL 模式的环境变量 |
+| `nginx.conf` | 宿主机 Nginx 配置模板（非 Docker） |
+| `nginx.docker.conf` | Docker 内部 Nginx 配置（供 compose 使用） |
+| `deploy.sh` | 一键部署脚本 |
 
 ## 重要启动行为
 
-当前后端启动逻辑会自动执行以下操作：
+后端启动时自动执行：
 
-- 如果业务数据库不存在，会尝试创建数据库。
+- 如果业务数据库不存在，自动创建数据库。
 - 创建表和索引。
 - 创建默认普通用户：`123@test.com / admin@123`。
-- 创建默认运营后台管理员。如果运营后台环境变量缺失，会回退到 `admin / admin`。
+- 创建默认运营后台管理员（由环境变量控制，回退 `admin / admin`）。
 
-生产部署前至少需要完成以下事项：
+## 环境变量说明
 
-- 修改 `JWT_SECRET`。
-- 修改 `OPS_JWT_SECRET`。
-- 修改 `OPS_ADMIN_USERNAME`。
-- 修改 `OPS_ADMIN_PASSWORD`。
-- 不要使用 `CORS_ORIGINS=*`。
-- 首次启动后禁用、删除或重置默认普通用户 `123@test.com`。
+### NODE_ENV
 
-## 方案一：使用外部 PostgreSQL
+两个 `backend.env.*` 文件均已包含 `NODE_ENV=production`，确保 Docker 容器内以生产模式运行（Docker 镜像构建时不会复制 `.env.*` 文件，因此必须通过 `env_file` 注入）。
 
-如果服务器上已有 PostgreSQL，或使用云数据库、托管数据库，推荐使用该方案。
+### 必填项
 
-### 1. 修改环境变量文件
-
-编辑 `deplay/backend.env.external-db`，重点修改：
+生产部署前至少修改以下值：
 
 ```env
-CORS_ORIGINS=https://ops.example.com,https://app.example.com
-JWT_SECRET=replace-with-a-strong-random-jwt-secret
-OPS_JWT_SECRET=replace-with-another-strong-random-ops-jwt-secret
-OPS_ADMIN_USERNAME=ops_admin
-OPS_ADMIN_PASSWORD=replace-with-a-strong-admin-password
-PGHOST=replace-with-your-postgres-host
-PGUSER=replace-with-your-postgres-user
-PGPASSWORD=replace-with-your-postgres-password
+JWT_SECRET=替换为高强度随机字符串
+OPS_JWT_SECRET=替换为另一个不同的高强度随机字符串
+OPS_ADMIN_USERNAME=生产管理员用户名
+OPS_ADMIN_PASSWORD=生产管理员高强度密码
+CORS_ORIGINS=具体的前端来源，多个用逗号分隔，不要使用 *
 ```
 
-### 2. 确认数据库权限
+### 数据库密码
 
-后端启动时会先连接 `PGADMIN_DATABASE`，再检查 `PGDATABASE` 是否存在。
+使用 `docker-postgres` 方案时，`POSTGRES_PASSWORD` 和 `PGPASSWORD` 必须保持一致。
 
-因此需要满足以下任一条件：
+### 第三方登录（可选）
 
-- `PGUSER` 有创建数据库的权限。
-- 已经手动创建好 `PGDATABASE`。
+```
+WECHAT_MINI_APP_ID=
+WECHAT_MINI_APP_SECRET=
+WECHAT_APP_ID=
+WECHAT_APP_SECRET=
+GOOGLE_APP_WEB_CLIENT_ID=
+```
 
-如果托管 PostgreSQL 账号没有 `CREATE DATABASE` 权限，请先手动创建业务数据库。
-
-### 3. 启动
-
-在 `iot-platform-backend-dev` 项目根目录执行：
+## 三种部署模式
 
 ```bash
-docker compose -f deplay/docker-compose.external-db.yml up -d --build
+# 模式一：后端 + 内置 PostgreSQL（推荐单机部署）
+bash deplay/deploy.sh
+
+# 模式二：后端 + 外部 PostgreSQL（已有云数据库）
+bash deplay/deploy.sh --without-postgres
+
+# 模式三：后端 + 内置 PostgreSQL + Nginx（80 端口，方便直接访问）
+bash deplay/deploy.sh --with-nginx
 ```
 
-## 方案二：后端和 PostgreSQL 一起运行
+各模式对应的 compose 文件：
 
-如果是单台服务器部署，且 PostgreSQL 不需要对公网暴露，推荐使用该方案。
+| 命令 | 包含服务 | 适用场景 |
+|------|---------|---------|
+| `deploy.sh` | postgres + backend | 单机部署，无域名 |
+| `deploy.sh --without-postgres` | backend | 已有机房/云数据库 |
+| `deploy.sh --with-nginx` | postgres + backend + nginx | 需要 80 端口直连，无域名 |
 
-### 1. 修改环境变量文件
-
-编辑 `deplay/backend.env.docker-postgres`，重点修改：
-
-```env
-CORS_ORIGINS=https://ops.example.com,https://app.example.com
-JWT_SECRET=replace-with-a-strong-random-jwt-secret
-OPS_JWT_SECRET=replace-with-another-strong-random-ops-jwt-secret
-OPS_ADMIN_USERNAME=ops_admin
-OPS_ADMIN_PASSWORD=replace-with-a-strong-admin-password
-POSTGRES_PASSWORD=replace-with-a-strong-postgres-password
-PGPASSWORD=replace-with-a-strong-postgres-password
-```
-
-注意：`POSTGRES_PASSWORD` 和 `PGPASSWORD` 必须保持一致。
-
-### 2. 启动
-
-在 `iot-platform-backend-dev` 项目根目录执行：
-
-```bash
-docker compose -f deplay/docker-compose.with-postgres.yml up -d --build
-```
-
-补充说明：
-
-- PostgreSQL 默认不再向宿主机暴露 `5432` 端口。
-- 如果确实需要宿主机直连 PostgreSQL，可以临时给 `postgres` 服务添加 `ports: - "5432:5432"`。
-- PostgreSQL 已配置健康检查，后端会等待 PostgreSQL 健康后再启动。
+## 手动启动（不通过 deploy.sh）
 
 ## 健康检查
 
-查看容器状态：
-
 ```bash
+# 容器状态
 docker compose -f deplay/docker-compose.with-postgres.yml ps
-```
 
-或：
-
-```bash
-docker compose -f deplay/docker-compose.external-db.yml ps
-```
-
-查看后端日志：
-
-```bash
+# 后端日志
 docker compose -f deplay/docker-compose.with-postgres.yml logs -f iot-backend
-```
 
-查看数据库日志：
-
-```bash
+# 数据库日志
 docker compose -f deplay/docker-compose.with-postgres.yml logs -f postgres
+
+# API 健康接口
+curl http://127.0.0.1:3001/api/health
+# 预期返回：{"ok":true,"database":"...","time":"..."}
 ```
 
-检查 API 健康接口：
+## Nginx 反向代理（推荐）
+
+后端默认监听 `3001` 端口，生产环境应通过 Nginx 反向代理暴露 `80/443`。
+
+### 临时 IP 访问（无域名）
 
 ```bash
-curl http://127.0.0.1:3001/api/health
+# 安装 Nginx
+apt install nginx
+
+# 复制配置
+cp deplay/nginx.conf /etc/nginx/sites-available/ranqizao
+ln -s /etc/nginx/sites-available/ranqizao /etc/nginx/sites-enabled/
+
+# 测试并重载
+nginx -t && systemctl reload nginx
 ```
 
-## 前端 API 配置
+### 正式域名 + HTTPS
 
-### 运营后台：`iot-ops-web-dev`
+1. 将 `server_name` 改为你的域名
+2. 使用 Certbot 申请 Let's Encrypt 证书：
 
-```env
-VITE_API_BASE_URL=https://api.example.com/api
+```bash
+apt install certbot python3-certbot-nginx
+certbot --nginx -d your-domain.com
 ```
 
-### uni-app / 小程序：`iot-uni-app`
+## 运营后台部署
 
-需要同时设置：
+```bash
+cd iot-ops-web-dev
 
-```env
-VUE_APP_API_BASE_URL=https://api.example.com/api
-VITE_API_BASE_URL=https://api.example.com/api
+# 配置 API 地址
+# 编辑 .env.production：
+# VITE_API_BASE_URL=https://你的域名/api
+
+# 构建
+npm install
+npm run build:prod
+
+# 将 dist/ 目录上传到服务器，用 Nginx 托管
+# 参考 deplay/nginx.conf 中被注释的 location / 块
 ```
 
-注意：
+## uni-app 部署
 
-- 真机和小程序环境不要使用 `localhost`。
-- 应使用公网域名、公网 IP，或真机可访问的局域网 IP。
-- 微信小程序生产环境访问后端时，需要把后端域名加入微信公众平台的 request 合法域名。
+```bash
+cd iot-uni-app
 
-## 端口和反向代理
+# 编辑 .env.production：
+# VITE_API_BASE_URL=https://你的域名/api
 
-最简单的方式是直接开放 `3001/tcp`，但生产环境更推荐：
-
-- 只开放 `80/443`。
-- 使用 Nginx 或 Caddy 反向代理到 `127.0.0.1:3001`。
-- 所有前端统一通过一个 HTTPS API 域名访问后端。
-
-如果暂时不使用反向代理，至少需要：
-
-- 在云安全组开放 `3001/tcp`。
-- 在系统防火墙开放 `3001/tcp`。
-
-## 如果将 compose 文件复制到项目根目录
-
-如果后续把 compose 文件从 `deplay/` 复制到 `iot-platform-backend-dev` 项目根目录，可以把构建路径简化为：
-
-```yaml
-build:
-  context: .
-  dockerfile: deplay/Dockerfile
-env_file:
-  - ./deplay/backend.env.external-db
+# HBuilderX 中发行打包
+# 或在 CLI 中构建
 ```
 
-或：
+注意：真机和小程序环境不要使用 `localhost`。微信小程序需将后端域名加入 request 合法域名。
 
-```yaml
-build:
-  context: .
-  dockerfile: deplay/Dockerfile
-env_file:
-  - ./deplay/backend.env.docker-postgres
+## 首次启动后的安全动作
+
+- [ ] 修改了 `JWT_SECRET`、`OPS_JWT_SECRET` 等所有占位密钥
+- [ ] 使用配置的生产管理员账号登录运营后台
+- [ ] 确认没有使用回退默认账号 `admin / admin`
+- [ ] 禁用或删除默认测试用户 `123@test.com`
+- [ ] 将生产凭据记录到密码管理工具
+
+## 数据库备份（推荐）
+
+可添加定时任务每日备份：
+
+```bash
+# 编辑 crontab
+crontab -e
+
+# 每天凌晨 3 点备份
+0 3 * * * docker exec iot-postgres pg_dump -U postgres ai_iot_safety_stove_control > /srv/backups/db-$(date +\%Y\%m\%d).sql
 ```
+
+## 端口说明
+
+| 端口 | 用途 | 建议 |
+|------|------|------|
+| 80 | HTTP | 开（Nginx） |
+| 443 | HTTPS | 开（Nginx） |
+| 3001 | API | 不开，Nginx 反代到 127.0.0.1 |
+| 5432 | PostgreSQL | 不开（Docker 内部） |

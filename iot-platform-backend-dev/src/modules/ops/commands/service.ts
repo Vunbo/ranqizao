@@ -1,6 +1,10 @@
 import { HttpError } from '../../../shared/http';
-import { normalizePage, normalizePageSize } from '../common/pagination';
-import { getOpsCommandRow, listOpsCommandRows } from './command-repository';
+import { normalizePage, normalizePageSize, normaliseFilterValue } from '../_internal/pagination';
+import {
+  countOpsCommandRows,
+  getOpsCommandRow,
+  listOpsCommandRows,
+} from './command-repository';
 
 export async function listOpsCommands(input: {
   page?: unknown;
@@ -11,25 +15,18 @@ export async function listOpsCommands(input: {
 }) {
   const page = normalizePage(input.page, 1);
   const pageSize = normalizePageSize(input.pageSize, 20);
-  const search = String(input.search || '').trim().toLowerCase();
-  const type = String(input.type || '').trim();
-  const status = String(input.status || '').trim();
+  const search = normaliseFilterValue(input.search);
+  const type = normaliseFilterValue(input.type);
+  const status = normaliseFilterValue(input.status);
 
-  const filtered = (await listOpsCommandRows()).filter((row) => {
-    const matchesSearch = !search
-      || row.id.toLowerCase().includes(search)
-      || row.deviceSn.toLowerCase().includes(search)
-      || row.operatorName.toLowerCase().includes(search);
-    const matchesType = !type || row.commandType === type;
-    const matchesStatus = !status || row.status === status;
-    return matchesSearch && matchesType && matchesStatus;
-  });
-
-  const total = filtered.length;
-  const offset = (page - 1) * pageSize;
+  const filters = { search, type, status };
+  const [items, total] = await Promise.all([
+    listOpsCommandRows(filters, { page, pageSize }),
+    countOpsCommandRows(filters),
+  ]);
 
   return {
-    items: filtered.slice(offset, offset + pageSize),
+    items,
     pagination: {
       page,
       pageSize,

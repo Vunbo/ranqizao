@@ -1,4 +1,4 @@
-import { query } from '../../../database/client';
+import { query } from '../../../db/client';
 import { type AdminAuthUser } from '../../../shared/admin-auth';
 import { HttpError } from '../../../shared/http';
 

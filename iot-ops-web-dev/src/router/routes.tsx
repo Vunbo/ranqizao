@@ -16,7 +16,7 @@ import { DashboardPage } from '../features/dashboard';
 import { DeviceDetailPage, DeviceListPage } from '../features/devices';
 import { MerchantManagementPage } from '../features/merchant';
 import { UserManagementPage } from '../features/users';
-import { Login } from '../pages/Login';
+import { Login } from '../features/login/Login';
 
 export const OPS_ROUTES = {
   root: '/',

@@ -10,14 +10,9 @@ import {
   Moon
 } from 'lucide-react';
 import { useNavigate, useLocation } from 'react-router-dom';
-import { clsx, type ClassValue } from 'clsx';
-import { twMerge } from 'tailwind-merge';
 import { clearAuthSession, getStoredAuthUser } from '../lib/auth';
+import { cn } from '../lib/cn';
 import { OPS_NAV_ITEMS, OPS_ROUTES } from '../router/routes';
-
-function cn(...inputs: ClassValue[]) {
-  return twMerge(clsx(inputs));
-}
 
 interface NavItemProps {
   icon: React.ElementType;

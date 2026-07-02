@@ -1,12 +1,12 @@
 import { useEffect, useState } from 'react';
-import { api } from '../../lib/api';
+import { merchantApi } from '../../lib/api-merchant';
 import type {
   MerchantPagePayload,
   OpsMerchantApplicationDetailResponse,
   OpsMerchantApplicationItem,
   OpsMerchantPageResponse,
   OpsMerchantProfileItem,
-} from '../../types';
+} from '../../lib/api-merchant';
 import {
   cloneMerchantPayload,
   createEmptyMerchantPagePayload,
@@ -58,7 +58,7 @@ export function useMerchantManagementController() {
     setPageLoading(true);
     setError('');
     try {
-      const result = await api.get<OpsMerchantPageResponse>('/ops/merchant/page');
+      const result = await merchantApi.getPage();
       setPageData(result);
       setDraftPayload(
         cloneMerchantPayload(result.draft?.payload || result.published?.payload)
@@ -78,8 +78,8 @@ export function useMerchantManagementController() {
     setApplicationDetailLoading(true);
     setError('');
     try {
-      const result = await api.get<OpsMerchantApplicationDetailResponse>(
-        `/ops/merchant/applications/${applicationId}`
+      const result = await merchantApi.applicationDetail(
+        applicationId
       );
       setSelectedApplication(result);
       setReviewComment(result.application.reviewComment || '');
@@ -94,19 +94,10 @@ export function useMerchantManagementController() {
     setApplicationsLoading(true);
     setError('');
     try {
-      const query = new URLSearchParams();
-      query.set('page', '1');
-      query.set('pageSize', '100');
-      if (applicationSearch.trim()) {
-        query.set('search', applicationSearch.trim());
-      }
-      if (applicationStatus) {
-        query.set('status', applicationStatus);
-      }
-
-      const result = await api.get<{ items: OpsMerchantApplicationItem[] }>(
-        `/ops/merchant/applications?${query.toString()}`
-      );
+      const result = await merchantApi.listApplications({
+        search: applicationSearch.trim(),
+        status: applicationStatus,
+      });
       const nextItems = result.items || [];
       setApplications(nextItems);
 
@@ -135,19 +126,10 @@ export function useMerchantManagementController() {
     setProfilesLoading(true);
     setError('');
     try {
-      const query = new URLSearchParams();
-      query.set('page', '1');
-      query.set('pageSize', '100');
-      if (profileSearch.trim()) {
-        query.set('search', profileSearch.trim());
-      }
-      if (profileStatus) {
-        query.set('status', profileStatus);
-      }
-
-      const result = await api.get<{ items: OpsMerchantProfileItem[] }>(
-        `/ops/merchant/profiles?${query.toString()}`
-      );
+      const result = await merchantApi.listProfiles({
+        search: profileSearch.trim(),
+        status: profileStatus,
+      });
       setProfiles(result.items || []);
     } catch (requestError) {
       setError(requestError instanceof Error ? requestError.message : '商户列表加载失败');
@@ -176,10 +158,7 @@ export function useMerchantManagementController() {
     setSavingDraft(true);
     setError('');
     try {
-      const result = await api.put<{ page: OpsMerchantPageResponse['draft'] }>(
-        '/ops/merchant/page/draft',
-        draftPayload
-      );
+      const result = await merchantApi.saveDraft(draftPayload);
       setPageData((prev) => ({
         ...prev,
         draft: result.page,
@@ -197,9 +176,7 @@ export function useMerchantManagementController() {
     setPublishing(true);
     setError('');
     try {
-      const result = await api.post<{ page: OpsMerchantPageResponse['published'] }>(
-        '/ops/merchant/page/publish'
-      );
+      const result = await merchantApi.publish();
       setPageData((prev) => ({
         ...prev,
         published: result.page,
@@ -225,13 +202,7 @@ export function useMerchantManagementController() {
     setReviewingStatus(status);
     setError('');
     try {
-      const result = await api.post<OpsMerchantApplicationDetailResponse>(
-        `/ops/merchant/applications/${selectedApplicationId}/review`,
-        {
-          status,
-          reviewComment,
-        }
-      );
+      const result = await merchantApi.reviewApplication(selectedApplicationId, status, reviewComment);
 
       setSelectedApplication(result);
       setSuccessMessage(status === 'approved' ? '申请已通过' : '申请已驳回');

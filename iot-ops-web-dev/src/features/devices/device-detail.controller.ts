@@ -1,13 +1,5 @@
 import { useEffect, useState } from 'react';
-import { api } from '../../lib/api';
-import type {
-  OpsDeviceAlert,
-  OpsDeviceCommand,
-  OpsDeviceDetailResponse,
-  OpsDeviceMetrics,
-} from '../../types';
-
-export type DeviceControlCommand = 'lock_device' | 'unlock_device' | 'ignite' | 'shutdown';
+import { devicesApi, type DeviceControlCommand, type OpsDeviceAlert, type OpsDeviceCommand, type OpsDeviceDetailResponse, type OpsDeviceMetrics } from '../../lib/api-devices';
 
 export function useDeviceDetailController(deviceId?: string) {
   const [detail, setDetail] = useState<OpsDeviceDetailResponse | null>(null);
@@ -20,10 +12,10 @@ export function useDeviceDetailController(deviceId?: string) {
 
   const loadData = async (targetId: string) => {
     const [detailResponse, metricsResponse, alertsResponse, commandsResponse] = await Promise.all([
-      api.get<OpsDeviceDetailResponse>(`/ops/devices/${targetId}`),
-      api.get<{ metrics: OpsDeviceMetrics }>(`/ops/devices/${targetId}/metrics/realtime`),
-      api.get<{ items: OpsDeviceAlert[] }>(`/ops/devices/${targetId}/alerts`),
-      api.get<{ items: OpsDeviceCommand[] }>(`/ops/devices/${targetId}/commands`),
+      devicesApi.detail(targetId),
+      devicesApi.metrics(targetId),
+      devicesApi.alerts(targetId),
+      devicesApi.commands(targetId),
     ]);
 
     setDetail(detailResponse);
@@ -64,10 +56,7 @@ export function useDeviceDetailController(deviceId?: string) {
     setActionLoading(true);
     setError('');
     try {
-      await api.post(`/ops/devices/${deviceId}/control`, {
-        command,
-        reason: '杩愮淮涓彴浜哄伐鎺у埗',
-      });
+      await devicesApi.control(deviceId, command);
       await loadData(deviceId);
     } catch (requestError) {
       setError(requestError instanceof Error ? requestError.message : '璁惧鎺у埗澶辫触');

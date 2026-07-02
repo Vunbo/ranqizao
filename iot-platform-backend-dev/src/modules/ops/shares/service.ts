@@ -1,5 +1,5 @@
-import { normalizePage, normalizePageSize } from '../common/pagination';
-import { listOpsShareRows } from './share-repository';
+import { normalizePage, normalizePageSize, normaliseFilterValue } from '../_internal/pagination';
+import { countOpsShareRows, listOpsShareRows } from './share-repository';
 
 export async function listOpsShares(input: {
   page?: unknown;
@@ -8,28 +8,16 @@ export async function listOpsShares(input: {
 }) {
   const page = normalizePage(input.page, 1);
   const pageSize = normalizePageSize(input.pageSize, 20);
-  const search = String(input.search || '').trim().toLowerCase();
+  const search = normaliseFilterValue(input.search);
 
-  const filtered = (await listOpsShareRows()).filter((row) => {
-    if (!search) {
-      return true;
-    }
-
-    return (
-      String(row.resourceSn || '').toLowerCase().includes(search)
-      || row.resourceName.toLowerCase().includes(search)
-      || row.ownerUid.toLowerCase().includes(search)
-      || row.ownerDisplayName.toLowerCase().includes(search)
-      || row.sharedToUid.toLowerCase().includes(search)
-      || row.sharedToDisplayName.toLowerCase().includes(search)
-    );
-  });
-
-  const total = filtered.length;
-  const offset = (page - 1) * pageSize;
+  const filters = { search };
+  const [items, total] = await Promise.all([
+    listOpsShareRows(filters, { page, pageSize }),
+    countOpsShareRows(filters),
+  ]);
 
   return {
-    items: filtered.slice(offset, offset + pageSize).map((row) => ({
+    items: items.map((row) => ({
       id: row.id,
       type: row.type,
       resourceId: row.resourceId,

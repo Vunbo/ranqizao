@@ -1,10 +1,10 @@
 import { type AdminAuthUser } from '../../../shared/admin-auth';
-import { normalizePage, normalizePageSize } from '../common/pagination';
+import { normalizePage, normalizePageSize, normaliseFilterValue } from '../_internal/pagination';
 import {
   markOpsAlertFalsePositiveByAdmin,
   resolveOpsAlertByAdmin,
 } from './alert-mutations';
-import { listOpsAlertRows } from './alert-repository';
+import { countOpsAlertRows, listOpsAlertRows } from './alert-repository';
 
 export async function listOpsAlerts(input: {
   page?: unknown;
@@ -15,25 +15,18 @@ export async function listOpsAlerts(input: {
 }) {
   const page = normalizePage(input.page, 1);
   const pageSize = normalizePageSize(input.pageSize, 20);
-  const search = String(input.search || '').trim().toLowerCase();
-  const level = String(input.level || '').trim();
-  const status = String(input.status || '').trim();
+  const search = normaliseFilterValue(input.search);
+  const level = normaliseFilterValue(input.level);
+  const status = normaliseFilterValue(input.status);
 
-  const filtered = (await listOpsAlertRows()).filter((row) => {
-    const matchesSearch = !search
-      || row.deviceSn.toLowerCase().includes(search)
-      || row.message.toLowerCase().includes(search)
-      || row.title.toLowerCase().includes(search);
-    const matchesLevel = !level || row.level === level;
-    const matchesStatus = !status || row.status === status;
-    return matchesSearch && matchesLevel && matchesStatus;
-  });
-
-  const total = filtered.length;
-  const offset = (page - 1) * pageSize;
+  const filters = { search, level, status };
+  const [items, total] = await Promise.all([
+    listOpsAlertRows(filters, { page, pageSize }),
+    countOpsAlertRows(filters),
+  ]);
 
   return {
-    items: filtered.slice(offset, offset + pageSize).map((row) => ({
+    items: items.map((row) => ({
       ...row,
       handlerName: row.handlerName || '-',
     })),

@@ -1,7 +1,7 @@
 import {
   query,
   withTransaction,
-} from '../../database/client';
+} from '../../db/client';
 import { HttpError } from '../../shared/http';
 import {
   deriveLocationRegionPath,
@@ -338,7 +338,7 @@ export async function createDeviceLog(input: {
 
   return insertDeviceLog(poolExecutor, {
     deviceId: input.deviceId,
-    ownerId: device.ownerId,
+    ownerId: input.userId,
     event,
     type: type as 'info' | 'warning' | 'success',
   });

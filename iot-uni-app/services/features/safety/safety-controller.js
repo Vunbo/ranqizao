@@ -1,10 +1,16 @@
-import { computed, ref } from 'vue'
+import { computed, ref, watch } from 'vue'
+import { remoteDeviceService } from '../../api/devices'
+
+const listDeviceLogs = (...args) => remoteDeviceService.listLogs(...args)
 
 export function useSafetyController(options) {
   const { props } = options
 
   const selectedDeviceId = ref(null)
   const dropdownOpen = ref(false)
+  const alertLogs = ref([])
+  const logs = ref([])
+  const loadingLogs = ref(false)
 
   // Derive device lists from user ownership
   const myDevices = computed(() => {
@@ -33,6 +39,54 @@ export function useSafetyController(options) {
     dropdownOpen.value = false
   }
 
+  // Fetch logs when current device changes
+  async function fetchLogs(deviceId) {
+    if (!deviceId) {
+      alertLogs.value = []
+      logs.value = []
+      return
+    }
+
+    loadingLogs.value = true
+    try {
+      const allLogs = await listDeviceLogs(deviceId)
+      // Split logs: alert/warning → 告警记录, the rest → 操作记录
+      alertLogs.value = allLogs
+        .filter((log) => log.type === 'alert' || log.type === 'warning')
+        .map((log) => ({
+          id: log.id,
+          type: log.type,
+          event: log.event,
+          displayName: log.displayName || log.ownerId,
+          time: formatTime(log.createdAt),
+        }))
+      logs.value = allLogs
+        .filter((log) => log.type !== 'alert' && log.type !== 'warning')
+        .map((log) => ({
+          id: log.id,
+          type: log.type || 'info',
+          event: log.event,
+          displayName: log.displayName || log.ownerId,
+          createdAt: log.createdAt,
+        }))
+    } catch (err) {
+      console.error('[safety] 加载日志失败:', err)
+      alertLogs.value = []
+      logs.value = []
+    } finally {
+      loadingLogs.value = false
+    }
+  }
+
+  // Re-fetch when selected device changes
+  watch(
+    () => currentDevice.value?.id,
+    (newId) => {
+      fetchLogs(newId)
+    },
+    { immediate: true }
+  )
+
   // Mock sensor data — replace with real API when available
   const sensors = computed(() => {
     const device = currentDevice.value
@@ -43,7 +97,7 @@ export function useSafetyController(options) {
       {
         id: 'temperature',
         label: '温度',
-        value: isOn ? '24°C' : '--',
+        value: isOn ? (device.temp != null ? `${device.temp}°C` : '24°C') : '--',
         icon: 'thermometer',
         status: 'safe',
       },
@@ -57,7 +111,7 @@ export function useSafetyController(options) {
       {
         id: 'gas',
         label: '燃气泄漏',
-        value: isOn ? '0.02%' : '--',
+        value: isOn ? (device.gas != null ? `${device.gas}%` : '0.02%') : '--',
         icon: 'flame',
         status: 'safe',
       },
@@ -65,20 +119,10 @@ export function useSafetyController(options) {
         id: 'smoke',
         label: '烟雾浓度',
         value: isOn ? '正常' : '--',
-        icon: 'cloud',
+        icon: 'alert',
         status: 'safe',
       },
     ]
-  })
-
-  // Mock alert logs — replace with real API when available
-  const alertLogs = computed(() => {
-    return []
-  })
-
-  // Mock operation logs — replace with real API when available
-  const logs = computed(() => {
-    return []
   })
 
   function dotClass(type) {
@@ -97,6 +141,10 @@ export function useSafetyController(options) {
     return `${date.getMonth() + 1}/${date.getDate()} ${date.getHours().toString().padStart(2, '0')}:${date.getMinutes().toString().padStart(2, '0')}`
   }
 
+  function formatTime(timestamp) {
+    return formatDate(timestamp)
+  }
+
   return {
     selectedDeviceId,
     dropdownOpen,
@@ -106,6 +154,7 @@ export function useSafetyController(options) {
     sharedDevices,
     alertLogs,
     sensors,
+    loadingLogs,
     selectDevice,
     dotClass,
     formatDate,

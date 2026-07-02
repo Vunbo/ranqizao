@@ -8,7 +8,7 @@ import {
   LayoutGrid,
   Info
 } from 'lucide-react';
-import { formatTime } from '../common/time';
+import { formatTime } from '../../common/time';
 import { useUserManagementController } from './user-management.controller';
 export const UserManagement = () => {
   const {

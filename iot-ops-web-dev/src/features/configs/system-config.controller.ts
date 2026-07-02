@@ -1,8 +1,6 @@
+import { configsApi, resolveConfigPath, type OpsConfigItem, type ConfigTab } from '../../lib/api-configs';
+import { buildEmptyConfig } from './system-config.helpers';
 import { type MouseEvent, useEffect, useMemo, useState } from 'react';
-import { api } from '../../lib/api';
-import type { OpsConfigItem } from '../../types';
-import { buildEmptyConfig, resolveConfigPath } from './system-config.helpers';
-import type { ConfigTab } from './system-config.types';
 
 export function useSystemConfigController() {
   const [activeTab, setActiveTab] = useState<ConfigTab>('message');
@@ -27,7 +25,7 @@ export function useSystemConfigController() {
     setLoading(true);
     setError('');
     try {
-      const result = await api.get<{ items: OpsConfigItem[] }>(resolveConfigPath(tab));
+      const result = await configsApi.list(tab);
       setConfigs(result.items || []);
     } catch (requestError) {
       setError(requestError instanceof Error ? requestError.message : '配置加载失败');
@@ -59,7 +57,6 @@ export function useSystemConfigController() {
     setIsSaving(true);
     setError('');
     try {
-      const path = resolveConfigPath(activeTab);
       const body = activeTab === 'message'
         ? {
             name: draft.name,
@@ -88,9 +85,9 @@ export function useSystemConfigController() {
             };
 
       if (draft.id.startsWith('temp-')) {
-        await api.post(path, body);
+        await configsApi.create(activeTab, body);
       } else {
-        await api.put(`${path}/${draft.id}`, body);
+        await configsApi.update(activeTab, draft.id, body);
       }
 
       await loadConfigs(activeTab);
@@ -115,7 +112,7 @@ export function useSystemConfigController() {
 
     try {
       if (!idToDelete.startsWith('temp-')) {
-        await api.delete(`${resolveConfigPath(activeTab)}/${idToDelete}`);
+        await configsApi.remove(activeTab, idToDelete);
       }
       setConfigs((prev) => prev.filter((config) => config.id !== idToDelete));
       if (selectedId === idToDelete) {
@@ -145,11 +142,7 @@ export function useSystemConfigController() {
     setError('');
 
     try {
-      const result = await api.post<{ logs: string[] }>('/ops/configs/simulate', {
-        type: activeTab,
-        configId: draft.id,
-        target: testInput,
-      });
+      const result = await configsApi.simulate(activeTab, testInput);
       setSimulationLog(result.logs || []);
     } catch (requestError) {
       setError(requestError instanceof Error ? requestError.message : '模拟运行失败');

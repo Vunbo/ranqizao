@@ -1,5 +1,5 @@
 import { randomUUID } from 'crypto';
-import { type DatabaseExecutor } from '../../database/client';
+import { type DatabaseExecutor } from '../../db/client';
 import { HttpError } from '../../shared/http';
 import {
   deriveLocationRegionPath,

@@ -1,23 +1,23 @@
 import { computed, ref } from 'vue'
-import {
-  createHome,
-  removeHome,
-  updateHomeDeviceLinks,
-} from '../home'
+import { remoteHomeService } from '../../api/homes'
+
+const createHome = (...args) => remoteHomeService.create(...args)
+const removeHome = (...args) => remoteHomeService.remove(...args)
+const updateHomeDeviceLinks = (...args) => remoteHomeService.updateDeviceLinks(...args)
 import {
   createCallbackTrigger,
   createNotifier,
   formatErrorMessage,
   hasDuplicateName,
   normalizeText,
-} from '../../common/shared-helpers'
-import { getOwnerDisplayName, resolveHomeMemberDisplayName } from '../../common/resource-helpers'
+} from '../../helpers/shared-helpers'
+import { getOwnerDisplayName, resolveHomeMemberDisplayName } from '../../helpers/resource-helpers'
 import {
   getDisplayInitial,
   getUserDisplayName,
   getUserShortUid,
   isOwnedByShortUid,
-} from '../../common/user-helpers'
+} from '../../helpers/user-helpers'
 
 export function useHomeManagementController(options) {
   const {

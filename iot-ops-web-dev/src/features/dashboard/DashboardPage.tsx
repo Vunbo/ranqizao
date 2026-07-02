@@ -16,16 +16,11 @@ import {
   Clock,
   Users,
 } from 'lucide-react';
-import { clsx, type ClassValue } from 'clsx';
-import { twMerge } from 'tailwind-merge';
 import { MAP_SOURCES } from './dashboard.map';
 import type { DashboardDevice, LocationTreeNode } from './dashboard.types';
 import { useDashboardController } from './dashboard.controller';
 import { Cascader, CustomSelect, StatCard } from './dashboard.ui';
-
-function cn(...inputs: ClassValue[]) {
-  return twMerge(clsx(inputs));
-}
+import { cn } from '../../lib/cn';
 
 export const Dashboard = () => {
   const {

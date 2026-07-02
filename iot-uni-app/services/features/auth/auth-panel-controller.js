@@ -8,12 +8,12 @@ import {
   loginWithWechatApp,
   registerWithPassword,
   sendPhoneLoginCode,
-} from '../auth'
-import { createCountdownTimer, formatCountdownText } from '../profile/account-binding-helpers'
+} from '../../gateway/auth'
+import { createCountdownTimer, formatCountdownText } from '../../helpers/auth-helpers'
 import {
   createNotifier,
   formatErrorMessage,
-} from '../common/controller-helpers'
+} from '../../helpers/shared-helpers'
 
 export function useAuthPanelController(options) {
   const { emitAuthSuccess, notify } = options
