@@ -1,7 +1,0 @@
-*** Begin Patch
-*** Update File: D:/Desktop/ranqizao/iot-app-flutter/lib/widgets/app_icon.dart
-@@
- import 'package:flutter/material.dart';
--import 'package:flutter/foundation.dart';
- import 'package:flutter_svg/flutter_svg.dart';
-*** End Patch

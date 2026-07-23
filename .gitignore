@@ -1,0 +1,53 @@
+# Local AI/editor state
+/.reasonix/
+/.codex/
+/.idea/
+/.vscode/
+/.claude/settings.local.json
+
+# Temporary work and diagnostics
+/tmp/
+*.log
+*.pid
+*.hprof
+hs_err_pid*
+*.tmp
+*.bak
+*.orig
+*.rej
+
+# OS metadata
+.DS_Store
+Thumbs.db
+Desktop.ini
+
+# Dependencies and generated output
+**/node_modules/
+**/dist/
+**/coverage/
+**/.cache/
+**/.gradle/
+**/.dart_tool/
+**/.pub-cache/
+**/unpackage/
+**/.hbuilderx/
+**/build/
+*.apk
+*.aab
+
+# Local machine and signing configuration
+**/local.properties
+**/key.properties
+**/keystore.properties
+*.jks
+*.keystore
+*.p12
+*.pfx
+
+# Environment files containing local or server secrets
+**/.env
+**/.env.local
+**/.env.*.local
+/iot-platform-backend-dev/.env.*
+!/iot-platform-backend-dev/.env.example
+!/iot-platform-backend-dev/.env.*.example
