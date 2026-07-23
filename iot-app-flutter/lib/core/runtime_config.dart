@@ -3,7 +3,7 @@ class RuntimeConfig {
 
   static const String apiBaseUrl = String.fromEnvironment(
     'VITE_API_BASE_URL',
-    defaultValue: 'http://localhost:3001/api',
+    defaultValue: 'http://192.168.105.103:3001/api',
   );
 
   static const String miniProgramLoginPath = String.fromEnvironment(

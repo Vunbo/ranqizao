@@ -1,6 +1,7 @@
 import { networkInterfaces } from 'os';
 import type { Server } from 'http';
 import { env } from '../config/env';
+import { getIotConfigDiagnostics, iotEnv } from '../config/iot';
 import { bootstrapDatabase } from '../db/bootstrap';
 import { createApp } from './createApp';
 
@@ -23,8 +24,33 @@ function collectAccessibleUrls() {
   return Array.from(urls);
 }
 
+function reportIotConfigDiagnostics() {
+  const diagnostics = getIotConfigDiagnostics();
+
+  if (!diagnostics.enabled) {
+    console.log('Huawei IoTDA integration is disabled.');
+    return;
+  }
+
+  if (diagnostics.errors.length > 0) {
+    throw new Error(
+      [
+        'Huawei IoTDA configuration is invalid:',
+        ...diagnostics.errors.map((item) => `- ${item}`),
+      ].join('\n')
+    );
+  }
+
+  console.log(`Huawei IoTDA integration is enabled. Endpoint: ${iotEnv.endpoint}`);
+
+  diagnostics.warnings.forEach((warning) => {
+    console.warn(`Huawei IoTDA config warning: ${warning}`);
+  });
+}
+
 export async function startServer(): Promise<Server> {
   await bootstrapDatabase();
+  reportIotConfigDiagnostics();
 
   const app = createApp();
   return app.listen(env.port, env.host, () => {

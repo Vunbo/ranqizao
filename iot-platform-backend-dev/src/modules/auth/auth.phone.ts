@@ -4,6 +4,7 @@ import { env } from '../../config/env';
 import { query, withTransaction } from '../../db/client';
 import { signAuthToken } from '../../shared/auth';
 import { HttpError } from '../../shared/http';
+import { sendAliyunSmsCode } from './sms/aliyun-sms';
 import { createPhoneCode, normalizePhone, toAuthUser } from './auth.helpers';
 import {
   createIdentity,
@@ -22,10 +23,28 @@ export async function createPhoneVerificationCode(input: {
   phone: string;
   purpose: PhoneVerificationPurpose;
 }) {
+  const latest = await query<{ createdAt: string }>(
+    `
+      SELECT created_at AS "createdAt"
+      FROM auth_verification_codes
+      WHERE target_type = 'phone'
+        AND target_value = $1
+        AND purpose = $2
+      ORDER BY created_at DESC
+      LIMIT 1
+    `,
+    [input.phone, input.purpose]
+  );
+  const lastSentAt = latest.rows[0]?.createdAt;
+  if (lastSentAt && Date.now() - new Date(lastSentAt).getTime() < 60_000) {
+    throw new HttpError(429, '验证码发送过于频繁，请稍后再试。');
+  }
+  if (env.isProduction && !env.aliyunSms.enabled) {
+    throw new HttpError(503, '短信服务未配置，请联系管理员。');
+  }
   const code = createPhoneCode();
   const codeHash = await bcrypt.hash(code, 10);
   const expiresAt = new Date(Date.now() + 5 * 60 * 1000).toISOString();
-
   await query(
     `
       UPDATE auth_verification_codes
@@ -37,7 +56,6 @@ export async function createPhoneVerificationCode(input: {
     `,
     [input.phone, input.purpose]
   );
-
   await query(
     `
       INSERT INTO auth_verification_codes (
@@ -52,18 +70,25 @@ export async function createPhoneVerificationCode(input: {
     `,
     [randomUUID(), input.phone, input.purpose, codeHash, expiresAt]
   );
-
-  if (!env.isProduction) {
+  if (env.aliyunSms.enabled) {
+    try {
+      await sendAliyunSmsCode({ phone: input.phone, code });
+    } catch (error) {
+      await query(
+        'UPDATE auth_verification_codes SET used_at = NOW() WHERE target_value = $1 AND purpose = $2 AND used_at IS NULL',
+        [input.phone, input.purpose]
+      );
+      throw error;
+    }
+  } else if (!env.isProduction) {
     console.log(`[DEV] phone verification code for ${input.phone}: ${code}`);
   }
-
   return {
     ok: true,
     expiresIn: 300,
-    debugCode: env.isProduction ? undefined : code,
+    debugCode: !env.isProduction && !env.aliyunSms.enabled ? code : undefined,
   };
 }
-
 export async function consumePhoneVerificationCode(input: {
   phone: string;
   code: string;
@@ -123,6 +148,11 @@ export async function sendPhoneLoginCode(input: { phone: string }) {
   });
 }
 
+export async function sendPhoneRegistrationCode(input: { phone: string }) {
+  const phone = normalizePhone(input.phone);
+  if (!phone) throw new HttpError(400, '手机号不能为空。');
+  return createPhoneVerificationCode({ phone, purpose: 'register' });
+}
 export async function loginPhoneUser(input: { phone: string; code: string }) {
   const phone = normalizePhone(input.phone);
   const code = String(input.code || '').trim();
@@ -171,6 +201,22 @@ export async function loginPhoneUser(input: { phone: string; code: string }) {
   };
 }
 
+export async function registerPhoneUser(input: { phone: string; code: string }) {
+  const phone = normalizePhone(input.phone);
+  const code = String(input.code || '').trim();
+  if (!phone || !code) throw new HttpError(400, '手机号和验证码不能为空。');
+  const existingIdentity = await getIdentity('phone_sms', phone, '');
+  if (existingIdentity) throw new HttpError(409, '该手机号已注册，请直接登录。');
+  await consumePhoneVerificationCode({ phone, code, purpose: 'register' });
+  const createdUser = await withTransaction(async (executor) => {
+    const user = await createUserRow(executor, { primaryPhone: phone });
+    await createIdentity(executor, { userPk: user.id, provider: 'phone_sms', providerUserId: phone, isVerified: true, isPrimary: true });
+    await setPrimaryPhone(executor, user.id, phone);
+    return user;
+  });
+  const user = toAuthUser(createdUser);
+  return { token: signAuthToken(user), user };
+}
 export async function sendPhoneBindCode(input: { phone: string }) {
   const phone = normalizePhone(input.phone);
 

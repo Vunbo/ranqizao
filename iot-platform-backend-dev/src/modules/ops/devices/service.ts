@@ -1,3 +1,4 @@
+﻿import { getDeviceLiveProperties, getDeviceRuntime, getDeviceShadow, refreshDeviceRuntime } from '../../iot/service';
 import { HttpError } from '../../../shared/http';
 import { mapDeviceRowToView } from '../_internal/device-view';
 import { normalizePage, normalizePageSize } from '../_internal/pagination';
@@ -115,6 +116,27 @@ export async function getOpsDevice(deviceId: string) {
 
 export async function getOpsDeviceRealtimeMetrics(deviceId: string) {
   const { device } = await getOpsDevice(deviceId);
+  const runtime = await getDeviceRuntime(deviceId).catch(() => null);
+
+  if (runtime) {
+    return {
+      temp: runtime.heatTemp ?? device.temp,
+      gas: device.gas,
+      smoke: device.smoke,
+      flow: runtime.fuelConsumption ?? device.flow,
+      fireLevel: device.fireLevel,
+      fire: device.fire,
+      valveStatus: device.valveStatus,
+      humanDetected: device.humanDetected,
+      vibration: device.vibration,
+      locked: device.locked,
+      online: runtime.cloudStatus ? runtime.cloudStatus.toUpperCase() === 'ONLINE' : device.online,
+      runState: runtime.runState,
+      errorCode: runtime.errorCode,
+      roomTemp: runtime.roomTemp,
+      collectedAt: runtime.lastSeenAt || runtime.reportedAt || device.lastHeartbeatAt || device.updatedAt,
+    };
+  }
 
   return {
     temp: device.temp,
@@ -130,6 +152,22 @@ export async function getOpsDeviceRealtimeMetrics(deviceId: string) {
     online: device.online,
     collectedAt: device.lastHeartbeatAt || device.updatedAt,
   };
+}
+
+export async function getOpsDeviceRuntime(deviceId: string) {
+  return getDeviceRuntime(deviceId);
+}
+
+export async function refreshOpsDeviceRuntime(deviceId: string) {
+  return refreshDeviceRuntime(deviceId);
+}
+
+export async function getOpsDeviceShadow(deviceId: string) {
+  return getDeviceShadow(deviceId);
+}
+
+export async function getOpsDeviceLiveProperties(deviceId: string) {
+  return getDeviceLiveProperties(deviceId);
 }
 
 export async function getOpsDeviceCommands(deviceId: string) {

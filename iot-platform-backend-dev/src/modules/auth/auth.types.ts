@@ -41,7 +41,7 @@ export interface AuthIdentityUserRow extends UserRow {
   meta: Record<string, unknown> | null;
 }
 
-export type PhoneVerificationPurpose = 'login' | 'bind' | 'unbind';
+export type PhoneVerificationPurpose = 'login' | 'register' | 'bind' | 'unbind';
 
 export interface VerificationCodeRow {
   id: string;

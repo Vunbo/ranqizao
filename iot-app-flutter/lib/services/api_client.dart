@@ -116,7 +116,6 @@ String extractErrorMessage(
       map['message'],
       map['error'],
       data is String ? data : null,
-      error.message,
     ].map((value) => value?.toString().trim() ?? '').firstWhere(
           (value) => value.isNotEmpty,
           orElse: () => '',
@@ -124,6 +123,23 @@ String extractErrorMessage(
 
     if (responseMessage.isNotEmpty) {
       return responseMessage;
+    }
+
+    switch (error.type) {
+      case DioExceptionType.connectionTimeout:
+      case DioExceptionType.sendTimeout:
+      case DioExceptionType.receiveTimeout:
+        return '连接服务器超时，请检查网络后重试。';
+      case DioExceptionType.connectionError:
+        return '无法连接服务器，请检查网络和服务地址。';
+      case DioExceptionType.badCertificate:
+        return '服务器证书校验失败，请联系管理员。';
+      case DioExceptionType.cancel:
+        return '请求已取消。';
+      case DioExceptionType.badResponse:
+        return '服务器返回异常，请稍后重试。';
+      case DioExceptionType.unknown:
+        return fallback;
     }
   }
 

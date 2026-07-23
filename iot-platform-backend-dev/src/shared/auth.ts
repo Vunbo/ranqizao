@@ -7,6 +7,7 @@ export interface AuthUser {
   userId: string;
   uid: string;
   email: string;
+  phone: string;
   displayName: string;
   photoURL: string | null;
 }

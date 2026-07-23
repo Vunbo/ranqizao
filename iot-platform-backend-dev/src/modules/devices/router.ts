@@ -1,4 +1,4 @@
-import { Router } from 'express';
+﻿import { Router } from 'express';
 import { requireAuth, type AuthenticatedRequest } from '../../shared/auth';
 import { asyncHandler } from '../../shared/http';
 import {
@@ -6,8 +6,13 @@ import {
   createDevice,
   createDeviceLog,
   deleteDevice,
+  executeUserDeviceCommand,
+  getUserDeviceLiveProperties,
+  getUserDeviceRuntime,
+  getUserDeviceShadow,
   listDeviceLogs,
   listDevices,
+  refreshUserDeviceRuntime,
   removeDeviceShare,
   scanBindableDevice,
   shareDevice,
@@ -63,6 +68,68 @@ devicesRouter.post(
     });
 
     res.status(201).json({ device });
+  })
+);
+
+devicesRouter.get(
+  '/:deviceId/runtime',
+  asyncHandler(async (req, res) => {
+    const runtime = await getUserDeviceRuntime({
+      userId: (req as AuthenticatedRequest).user!.uid,
+      deviceId: req.params.deviceId,
+    });
+
+    res.json({ runtime });
+  })
+);
+
+devicesRouter.post(
+  '/:deviceId/runtime/refresh',
+  asyncHandler(async (req, res) => {
+    const result = await refreshUserDeviceRuntime({
+      userId: (req as AuthenticatedRequest).user!.uid,
+      deviceId: req.params.deviceId,
+    });
+
+    res.json(result);
+  })
+);
+
+devicesRouter.get(
+  '/:deviceId/shadow',
+  asyncHandler(async (req, res) => {
+    const shadow = await getUserDeviceShadow({
+      userId: (req as AuthenticatedRequest).user!.uid,
+      deviceId: req.params.deviceId,
+    });
+
+    res.json({ shadow });
+  })
+);
+
+devicesRouter.get(
+  '/:deviceId/properties/live',
+  asyncHandler(async (req, res) => {
+    const properties = await getUserDeviceLiveProperties({
+      userId: (req as AuthenticatedRequest).user!.uid,
+      deviceId: req.params.deviceId,
+    });
+
+    res.json({ properties });
+  })
+);
+
+devicesRouter.post(
+  '/:deviceId/commands',
+  asyncHandler(async (req, res) => {
+    const result = await executeUserDeviceCommand({
+      userId: (req as AuthenticatedRequest).user!.uid,
+      deviceId: req.params.deviceId,
+      commandName: String(req.body?.commandName || ''),
+      paras: (req.body?.paras || {}) as Record<string, unknown>,
+    });
+
+    res.json(result);
   })
 );
 

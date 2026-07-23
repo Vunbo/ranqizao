@@ -16,8 +16,10 @@ import {
   loginPhoneUser,
   loginUser,
   registerUser,
+  registerPhoneUser,
   sendPhoneBindCode,
   sendPhoneLoginCode,
+  sendPhoneRegistrationCode,
   sendPhoneUnbindCode,
   unbindIdentity,
   updateCurrentUserProfile,
@@ -61,6 +63,21 @@ authRouter.post(
   })
 );
 
+authRouter.post(
+  '/phone/register/send-code',
+  asyncHandler(async (req, res) => {
+    const result = await sendPhoneRegistrationCode({ phone: String(req.body?.phone || '') });
+    res.json(result);
+  })
+);
+
+authRouter.post(
+  '/phone/register',
+  asyncHandler(async (req, res) => {
+    const result = await registerPhoneUser({ phone: String(req.body?.phone || ''), code: String(req.body?.code || '') });
+    res.status(201).json(result);
+  })
+);
 authRouter.post(
   '/phone/login',
   asyncHandler(async (req, res) => {

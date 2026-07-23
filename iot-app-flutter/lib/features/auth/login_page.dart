@@ -18,6 +18,7 @@ class _LoginPageState extends ConsumerState<LoginPage> {
   bool _isLogin = true;
   String _authMethod = 'email';
   String? _localError;
+  bool _isSendingPhoneCode = false;
 
   final _emailCtrl = TextEditingController();
   final _pwdCtrl = TextEditingController();
@@ -52,12 +53,12 @@ class _LoginPageState extends ConsumerState<LoginPage> {
   }
 
   bool get _isFormValid {
-    if (_isLogin) {
-      if (_authMethod == 'phone') {
-        return _phoneCtrl.text.trim().isNotEmpty &&
-            _phoneCodeCtrl.text.trim().isNotEmpty;
-      }
+    if (_authMethod == 'phone') {
+      return _phoneCtrl.text.trim().isNotEmpty &&
+          _phoneCodeCtrl.text.trim().isNotEmpty;
+    }
 
+    if (_isLogin) {
       return _emailCtrl.text.trim().isNotEmpty && _pwdCtrl.text.isNotEmpty;
     }
 
@@ -80,6 +81,7 @@ class _LoginPageState extends ConsumerState<LoginPage> {
 
   void _toggleAuthMode() {
     ref.read(authProvider.notifier).clearError();
+    _resetPhoneCountdown();
     setState(() {
       _isLogin = !_isLogin;
       _authMethod = 'email';
@@ -96,6 +98,7 @@ class _LoginPageState extends ConsumerState<LoginPage> {
     }
 
     ref.read(authProvider.notifier).clearError();
+    _resetPhoneCountdown();
     setState(() {
       _authMethod = method;
       _localError = null;
@@ -141,9 +144,14 @@ class _LoginPageState extends ConsumerState<LoginPage> {
     });
   }
 
+  void _resetPhoneCountdown() {
+    _countdownTimer?.cancel();
+    _phoneCountdown = 0;
+  }
+
   Future<void> _sendPhoneCode() async {
     final authState = ref.read(authProvider);
-    if (authState.isLoading || _phoneCountdown > 0) {
+    if (authState.isLoading || _isSendingPhoneCode || _phoneCountdown > 0) {
       return;
     }
 
@@ -156,23 +164,32 @@ class _LoginPageState extends ConsumerState<LoginPage> {
     }
 
     ref.read(authProvider.notifier).clearError();
-    if (_localError != null) {
-      setState(() {
-        _localError = null;
-      });
-    }
+    setState(() {
+      _localError = null;
+      _isSendingPhoneCode = true;
+    });
 
-    final result =
-        await ref.read(authProvider.notifier).sendPhoneLoginCode(phone);
-    if (!mounted || result == null) {
-      return;
-    }
+    try {
+      final notifier = ref.read(authProvider.notifier);
+      final result = _isLogin
+          ? await notifier.sendPhoneLoginCode(phone)
+          : await notifier.sendPhoneRegistrationCode(phone);
+      if (!mounted || result == null) {
+        return;
+      }
 
-    _startPhoneCountdown();
-    final message = result.debugCode?.isNotEmpty == true
-        ? '验证码已发送，当前调试验证码：${result.debugCode}'
-        : '验证码已发送';
-    _showMessage(message);
+      _startPhoneCountdown();
+      final message = result.debugCode?.isNotEmpty == true
+          ? '验证码已发送，当前调试验证码：${result.debugCode}'
+          : '验证码已发送';
+      _showMessage(message);
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isSendingPhoneCode = false;
+        });
+      }
+    }
   }
 
   Future<void> _submit() async {
@@ -189,11 +206,18 @@ class _LoginPageState extends ConsumerState<LoginPage> {
       });
     }
 
-    if (_isLogin && _authMethod == 'phone') {
-      await notifier.loginWithPhoneCode(
-        _phoneCtrl.text.trim(),
-        _phoneCodeCtrl.text.trim(),
-      );
+    if (_authMethod == 'phone') {
+      if (_isLogin) {
+        await notifier.loginWithPhoneCode(
+          _phoneCtrl.text.trim(),
+          _phoneCodeCtrl.text.trim(),
+        );
+      } else {
+        await notifier.registerWithPhoneCode(
+          _phoneCtrl.text.trim(),
+          _phoneCodeCtrl.text.trim(),
+        );
+      }
       return;
     }
 
@@ -262,15 +286,18 @@ class _LoginPageState extends ConsumerState<LoginPage> {
               children: [
                 _buildBrand(),
                 const SizedBox(height: 28),
-                if (_isLogin) _buildSwitchBar(),
+                _buildSwitchBar(),
                 const SizedBox(height: 18),
-                ...(_authMethod == 'email' || !_isLogin
+                ...(_authMethod == 'email'
                     ? _buildEmailForm()
                     : _buildPhoneForm(authState.isLoading)),
                 if (formError != null && formError.isNotEmpty)
                   _buildErrorText(formError),
                 if (_passwordMismatch) _buildErrorText('两次输入的密码不一致'),
-                _buildSubmitButton(authState.isLoading),
+                _buildSubmitButton(
+                  loading: authState.isLoading && !_isSendingPhoneCode,
+                  disabled: authState.isLoading,
+                ),
                 _buildFooter(),
                 if (_isLogin) ...[
                   const SizedBox(height: 24),
@@ -356,11 +383,11 @@ class _LoginPageState extends ConsumerState<LoginPage> {
       child: Row(
         children: [
           _buildSwitchItem(
-            label: '邮箱登录',
+            label: _isLogin ? '邮箱登录' : '邮箱注册',
             method: 'email',
           ),
           _buildSwitchItem(
-            label: '手机号登录',
+            label: _isLogin ? '手机号登录' : '手机号注册',
             method: 'phone',
           ),
         ],
@@ -471,14 +498,38 @@ class _LoginPageState extends ConsumerState<LoginPage> {
                 borderRadius: BorderRadius.circular(16),
               ),
               child: Center(
-                child: Text(
-                  _phoneCountdownText,
-                  style: const TextStyle(
-                    fontSize: 12,
-                    fontWeight: FontWeight.w700,
-                    color: AppColors.slate700,
-                  ),
-                ),
+                child: _isSendingPhoneCode
+                    ? const Row(
+                        key: Key('phone-code-loading'),
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          SizedBox(
+                            width: 14,
+                            height: 14,
+                            child: CircularProgressIndicator(
+                              strokeWidth: 2,
+                              color: AppColors.slate700,
+                            ),
+                          ),
+                          SizedBox(width: 6),
+                          Text(
+                            '发送中',
+                            style: TextStyle(
+                              fontSize: 12,
+                              fontWeight: FontWeight.w700,
+                              color: AppColors.slate700,
+                            ),
+                          ),
+                        ],
+                      )
+                    : Text(
+                        _phoneCountdownText,
+                        style: const TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w700,
+                          color: AppColors.slate700,
+                        ),
+                      ),
               ),
             ),
           ),
@@ -567,7 +618,13 @@ class _LoginPageState extends ConsumerState<LoginPage> {
                     color: AppColors.textSecondary,
                     fontSize: 14,
                   ),
+                  filled: false,
                   border: InputBorder.none,
+                  enabledBorder: InputBorder.none,
+                  focusedBorder: InputBorder.none,
+                  disabledBorder: InputBorder.none,
+                  errorBorder: InputBorder.none,
+                  focusedErrorBorder: InputBorder.none,
                   isDense: true,
                   contentPadding: const EdgeInsets.symmetric(vertical: 16),
                 ),
@@ -598,17 +655,20 @@ class _LoginPageState extends ConsumerState<LoginPage> {
     );
   }
 
-  Widget _buildSubmitButton(bool loading) {
+  Widget _buildSubmitButton({
+    required bool loading,
+    required bool disabled,
+  }) {
     return Padding(
       padding: const EdgeInsets.only(top: 18),
       child: SizedBox(
         width: double.infinity,
         child: ElevatedButton(
-          onPressed: loading ? null : _submit,
+          onPressed: disabled ? null : _submit,
           style: ElevatedButton.styleFrom(
             backgroundColor: AppColors.primary,
             foregroundColor: Colors.white,
-            disabledBackgroundColor: AppColors.primary,
+            disabledBackgroundColor: AppColors.primary.withValues(alpha: 0.72),
             disabledForegroundColor: Colors.white,
             minimumSize: const Size(0, 52),
             shape: RoundedRectangleBorder(
@@ -655,7 +715,7 @@ class _LoginPageState extends ConsumerState<LoginPage> {
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
           Text(
-            _isLogin ? '还没有账户？' : '已经有账户？',
+            _isLogin ? '还没有账号？' : '已经有账号？',
             style: const TextStyle(
               fontSize: 14,
               color: AppColors.slate500,

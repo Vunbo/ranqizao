@@ -1,4 +1,4 @@
-﻿import 'runtime_config.dart';
+import 'runtime_config.dart';
 
 class ApiConstants {
   static String get baseUrl => RuntimeConfig.apiBaseUrl;
@@ -7,6 +7,9 @@ class ApiConstants {
   static const String authLogin = '/auth/login';
   static const String authPhoneSendCode = '/auth/phone/send-code';
   static const String authPhoneLogin = '/auth/phone/login';
+  static const String authPhoneRegisterSendCode =
+      '/auth/phone/register/send-code';
+  static const String authPhoneRegister = '/auth/phone/register';
   static String get authMiniProgramLogin => RuntimeConfig.miniProgramLoginPath;
   static String get authWechatLogin => RuntimeConfig.appWechatLoginPath;
   static String get authBindWechatApp => RuntimeConfig.bindWechatAppPath;
@@ -28,10 +31,12 @@ class ApiConstants {
   static String deviceDetail(String id) => '/devices/$id';
   static const String deviceBindScan = '/devices/bind/scan';
   static const String deviceBind = '/devices/bind';
-  static String deviceCommand(String id, String cmd) => '/devices/$id/commands/$cmd';
+  static String deviceCommand(String id, String cmd) =>
+      '/devices/$id/commands/$cmd';
   static String deviceLogs(String id) => '/devices/$id/logs';
   static String deviceShare(String id) => '/devices/$id/share';
-  static String deviceShareMember(String id, String userId) => '/devices/$id/share/$userId';
+  static String deviceShareMember(String id, String userId) =>
+      '/devices/$id/share/$userId';
 
   static const String homes = '/homes';
   static String homeDetail(String id) => '/homes/$id';

@@ -7,8 +7,10 @@ import {
 import {
   bindPhoneToUser,
   loginPhoneUser,
+  registerPhoneUser,
   sendPhoneBindCode,
   sendPhoneLoginCode,
+  sendPhoneRegistrationCode,
   sendPhoneUnbindCode,
 } from './auth.phone';
 import {
@@ -39,8 +41,10 @@ export {
   loginWechatAppUser,
   registerUser,
   loginPhoneUser,
+  registerPhoneUser,
   sendPhoneBindCode,
   sendPhoneLoginCode,
+  sendPhoneRegistrationCode,
   sendPhoneUnbindCode,
   getCurrentUser,
   listUserIdentities,

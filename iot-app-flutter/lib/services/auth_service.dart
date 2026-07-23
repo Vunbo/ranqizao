@@ -1,4 +1,4 @@
-﻿import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../core/constants.dart';
 import '../models/auth_models.dart';
@@ -21,12 +21,36 @@ class AuthService {
     return PhoneCodeSendResult.fromJson(readResponseMap(res.data));
   }
 
+  Future<PhoneCodeSendResult> sendPhoneRegistrationCode(String phone) async {
+    final res = await _api.post(
+      ApiConstants.authPhoneRegisterSendCode,
+      data: {
+        'phone': phone,
+      },
+    );
+    return PhoneCodeSendResult.fromJson(readResponseMap(res.data));
+  }
+
   Future<AuthSessionPayload> loginWithPhoneCode(
     String phone,
     String code,
   ) async {
     final res = await _api.post(
       ApiConstants.authPhoneLogin,
+      data: {
+        'phone': phone,
+        'code': code,
+      },
+    );
+    return AuthSessionPayload.fromJson(readResponseMap(res.data));
+  }
+
+  Future<AuthSessionPayload> registerWithPhoneCode(
+    String phone,
+    String code,
+  ) async {
+    final res = await _api.post(
+      ApiConstants.authPhoneRegister,
       data: {
         'phone': phone,
         'code': code,

@@ -1,4 +1,4 @@
-﻿import 'package:flutter/material.dart';
+import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
@@ -15,7 +15,9 @@ import 'package:iot_app_flutter/providers/auth_provider.dart';
 import 'package:iot_app_flutter/widgets/bottom_nav.dart';
 
 final routerProvider = Provider<GoRouter>((ref) {
-  final authState = ref.watch(authProvider);
+  final authStatus = ref.watch(
+    authProvider.select((state) => state.status),
+  );
 
   return GoRouter(
     initialLocation: '/splash',
@@ -23,11 +25,11 @@ final routerProvider = Provider<GoRouter>((ref) {
       final onSplash = state.matchedLocation == '/splash';
       final onLogin = state.matchedLocation == '/login';
 
-      if (!authState.isReady) {
+      if (authStatus == AuthStatus.uninitialized) {
         return onSplash ? null : '/splash';
       }
 
-      if (!authState.isLoggedIn) {
+      if (authStatus != AuthStatus.authenticated) {
         return onLogin ? null : '/login';
       }
 
@@ -167,5 +169,3 @@ class AppShell extends StatelessWidget {
     );
   }
 }
-
-

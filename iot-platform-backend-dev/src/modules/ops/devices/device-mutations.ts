@@ -1,6 +1,8 @@
-import { randomUUID } from 'crypto';
+﻿import { randomUUID } from 'crypto';
 import { withTransaction } from '../../../db/client';
+import { isIotIntegrationEnabled } from '../../../config/iot';
 import { HttpError } from '../../../shared/http';
+import { handleLegacyAdminControl } from '../../iot/service';
 import { getOpsDeviceRow } from './device-repository';
 
 export async function controlOpsDeviceByAdmin(input: {
@@ -17,6 +19,30 @@ export async function controlOpsDeviceByAdmin(input: {
     const row = await getOpsDeviceRow(input.deviceId, executor, true);
     if (!row) {
       throw new HttpError(404, '设备不存在。');
+    }
+
+    if (isIotIntegrationEnabled() && ['ignite', 'shutdown'].includes(command)) {
+      await handleLegacyAdminControl({
+        deviceId: input.deviceId,
+        adminId: input.adminId,
+        adminName: input.adminName,
+        command,
+      });
+
+      await executor.query(
+        `
+          INSERT INTO operation_logs (id, stove_id, owner_id, event, type)
+          VALUES ($1, $2, $3, $4, 'success')
+        `,
+        [
+          randomUUID(),
+          row.id,
+          row.ownerUid,
+          `运维控制：${command}${reason ? `（${reason}）` : ''}`,
+        ]
+      );
+
+      return true;
     }
 
     const updates: string[] = [];

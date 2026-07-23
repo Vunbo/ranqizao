@@ -42,6 +42,14 @@ function readNumber(name: string, fallback: number) {
   return parsed;
 }
 
+function readBoolean(name: string, fallback: boolean) {
+  const rawValue = process.env[name]?.trim().toLowerCase();
+  if (!rawValue) return fallback;
+  if (['1', 'true', 'yes', 'on'].includes(rawValue)) return true;
+  if (['0', 'false', 'no', 'off'].includes(rawValue)) return false;
+  throw new Error(`Environment variable ${name} must be a valid boolean.`);
+}
+
 function readCsv(value: string | undefined, fallback: string[]) {
   const source = value?.trim();
   if (!source) {
@@ -94,5 +102,15 @@ export const env = {
   },
   googleApp: {
     webClientId: readString('GOOGLE_APP_WEB_CLIENT_ID', ''),
+  },
+  aliyunSms: {
+    enabled: readBoolean('ALIYUN_SMS_ENABLED', false),
+    endpoint: readString('ALIYUN_SMS_ENDPOINT', 'https://dysmsapi.aliyuncs.com/'),
+    regionId: readString('ALIYUN_SMS_REGION_ID', 'cn-hangzhou'),
+    accessKeyId: readString('ALIYUN_SMS_ACCESS_KEY_ID', ''),
+    accessKeySecret: readString('ALIYUN_SMS_ACCESS_KEY_SECRET', ''),
+    signName: readString('ALIYUN_SMS_SIGN_NAME', ''),
+    templateCode: readString('ALIYUN_SMS_TEMPLATE_CODE', ''),
+    templateParamName: readString('SMS_TEMPLATE_PARAM_NAME', 'code'),
   },
 };

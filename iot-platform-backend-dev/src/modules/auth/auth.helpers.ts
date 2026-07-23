@@ -47,6 +47,7 @@ export function toAuthUser(user: UserRow): AuthUser {
     userId: user.id,
     uid: user.short_uid,
     email: user.primary_email || '',
+    phone: user.primary_phone || '',
     displayName: user.display_name,
     photoURL: user.photo_url,
   };

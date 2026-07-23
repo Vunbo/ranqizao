@@ -135,6 +135,31 @@ class AuthNotifier extends StateNotifier<AuthState> {
     }
   }
 
+  Future<PhoneCodeSendResult?> sendPhoneRegistrationCode(String phone) async {
+    state = state.copyWith(
+      isLoading: true,
+      error: null,
+    );
+
+    try {
+      final result = await _authService.sendPhoneRegistrationCode(phone);
+      state = state.copyWith(
+        isLoading: false,
+        error: null,
+      );
+      return result;
+    } catch (error) {
+      state = state.copyWith(
+        isLoading: false,
+        error: extractErrorMessage(
+          error,
+          fallback: '发送验证码失败',
+        ),
+      );
+      return null;
+    }
+  }
+
   Future<bool> loginWithPhoneCode(
     String phone,
     String code,
@@ -154,6 +179,31 @@ class AuthNotifier extends StateNotifier<AuthState> {
         error: extractErrorMessage(
           error,
           fallback: '认证失败，请检查输入内容。',
+        ),
+      );
+      return false;
+    }
+  }
+
+  Future<bool> registerWithPhoneCode(
+    String phone,
+    String code,
+  ) async {
+    state = state.copyWith(
+      isLoading: true,
+      error: null,
+    );
+
+    try {
+      final session = await _authService.registerWithPhoneCode(phone, code);
+      await _completeAuth(session);
+      return true;
+    } catch (error) {
+      state = state.copyWith(
+        isLoading: false,
+        error: extractErrorMessage(
+          error,
+          fallback: '注册失败，请检查输入内容。',
         ),
       );
       return false;

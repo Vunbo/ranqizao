@@ -1,4 +1,4 @@
-import { Router } from 'express';
+﻿import { Router } from 'express';
 import { requireAdminAuth } from '../../../shared/admin-auth';
 import { asyncHandler } from '../../../shared/http';
 import {
@@ -6,8 +6,12 @@ import {
   getOpsDevice,
   getOpsDeviceAlerts,
   getOpsDeviceCommands,
+  getOpsDeviceLiveProperties,
   getOpsDeviceRealtimeMetrics,
+  getOpsDeviceRuntime,
+  getOpsDeviceShadow,
   listOpsDevices,
+  refreshOpsDeviceRuntime,
 } from './service';
 
 export const opsDevicesRouter = Router();
@@ -39,6 +43,38 @@ opsDevicesRouter.get(
 );
 
 opsDevicesRouter.get(
+  '/:deviceId/runtime',
+  asyncHandler(async (req, res) => {
+    const runtime = await getOpsDeviceRuntime(req.params.deviceId);
+    res.json({ runtime });
+  })
+);
+
+opsDevicesRouter.post(
+  '/:deviceId/runtime/refresh',
+  asyncHandler(async (req, res) => {
+    const result = await refreshOpsDeviceRuntime(req.params.deviceId);
+    res.json(result);
+  })
+);
+
+opsDevicesRouter.get(
+  '/:deviceId/shadow',
+  asyncHandler(async (req, res) => {
+    const shadow = await getOpsDeviceShadow(req.params.deviceId);
+    res.json({ shadow });
+  })
+);
+
+opsDevicesRouter.get(
+  '/:deviceId/properties/live',
+  asyncHandler(async (req, res) => {
+    const properties = await getOpsDeviceLiveProperties(req.params.deviceId);
+    res.json({ properties });
+  })
+);
+
+opsDevicesRouter.get(
   '/:deviceId/commands',
   asyncHandler(async (req, res) => {
     const items = await getOpsDeviceCommands(req.params.deviceId);
@@ -53,7 +89,6 @@ opsDevicesRouter.get(
     res.json({ items });
   })
 );
-
 
 opsDevicesRouter.post(
   '/:deviceId/control',

@@ -1,12 +1,22 @@
-import {
+﻿import {
   query,
   withTransaction,
 } from '../../db/client';
+import { isIotIntegrationEnabled } from '../../config/iot';
 import { HttpError } from '../../shared/http';
 import {
   deriveLocationRegionPath,
   normalizeLocationForStorage,
 } from '../../shared/location';
+import {
+  getDeviceLiveProperties,
+  getDeviceRuntime,
+  getDeviceShadow,
+  handleLegacyUserControl,
+  refreshDeviceRuntime,
+  sendDeviceCommand,
+  syncCloudDeviceForBusinessDevice,
+} from '../iot/service';
 import {
   createBindingEvent,
   createDeviceRecord,
@@ -26,6 +36,119 @@ import {
   poolExecutor,
   setInventoryStatus,
 } from './device-repository';
+
+function hasOwn(input: Record<string, unknown>, key: string) {
+  return Object.prototype.hasOwnProperty.call(input, key);
+}
+
+async function ensureAccessibleDeviceForUser(deviceId: string, userId: string) {
+  const { device, isOwner } = await getAccessibleDevice(deviceId, userId);
+
+  if (!device) {
+    throw new HttpError(404, '设备不存在或无权限。');
+  }
+
+  return { device, isOwner };
+}
+
+async function applyLocalDeviceUpdates(input: {
+  deviceId: string;
+  ownerId: string;
+  currentOwnerId: string;
+  isOwner: boolean;
+  body: Record<string, unknown>;
+}) {
+  const fieldMap = {
+    name: 'name',
+    location: 'location',
+    isOn: 'is_on',
+    fireLevel: 'fire_level',
+    temp: 'temp',
+    gas: 'gas',
+    smoke: 'smoke',
+    flow: 'flow',
+    humanDetected: 'human_detected',
+    vibration: 'vibration',
+  } as const;
+  const ownerOnlyFields = new Set<keyof typeof fieldMap>([
+    'name',
+    'location',
+  ]);
+  const fields: Array<{ column: string; value: unknown; cast?: string }> = [];
+
+  for (const key of Object.keys(fieldMap) as Array<keyof typeof fieldMap>) {
+    if (!(key in input.body)) {
+      continue;
+    }
+
+    if (ownerOnlyFields.has(key) && !input.isOwner) {
+      continue;
+    }
+
+    if (key === 'name') {
+      const name = String(input.body[key] || '').trim();
+      if (!name) {
+        throw new HttpError(400, '设备名称不能为空。');
+      }
+
+      const hasDuplicate = await findDuplicateDeviceName(
+        input.currentOwnerId,
+        name,
+        poolExecutor,
+        input.deviceId
+      );
+
+      if (hasDuplicate) {
+        throw new HttpError(409, '当前账号下已存在同名设备。');
+      }
+
+      fields.push({ column: fieldMap[key], value: name });
+      continue;
+    }
+
+    if (key === 'location') {
+      const normalizedLocation = normalizeLocationForStorage(input.body[key]);
+      fields.push({
+        column: fieldMap[key],
+        value: JSON.stringify(normalizedLocation),
+        cast: '::jsonb',
+      });
+      fields.push({
+        column: 'region_path',
+        value: normalizedLocation
+          ? deriveLocationRegionPath(normalizedLocation, { includeDistrict: true })
+          : null,
+      });
+      continue;
+    }
+
+    fields.push({
+      column: fieldMap[key],
+      value: input.body[key],
+    });
+  }
+
+  if (!fields.length) {
+    return false;
+  }
+
+  const assignments = fields.map(
+    (field, index) => `${field.column} = $${index + 1}${field.cast || ''}`
+  );
+  const values = fields.map((field) => field.value);
+  values.push(input.deviceId);
+
+  await query(
+    `
+      UPDATE devices
+      SET ${assignments.join(', ')}, updated_at = NOW()
+      WHERE id = $${values.length}
+    `,
+    values
+  );
+
+  return true;
+}
 
 export async function listDevices(uid: string) {
   return listVisibleDevices(uid);
@@ -98,7 +221,7 @@ export async function bindScannedDevice(input: {
 }) {
   const qrCode = String(input.qrCode || '').trim();
 
-  return withTransaction(async (executor) => {
+  const result = await withTransaction(async (executor) => {
     const inventory = await getInventoryByQrCode(qrCode, executor, true);
 
     if (!inventory) {
@@ -157,6 +280,36 @@ export async function bindScannedDevice(input: {
       wifiSsid: input.wifiSsid ? String(input.wifiSsid) : null,
     };
   });
+
+  let cloudBinding: {
+    status: 'linked' | 'failed' | 'disabled';
+    message?: string;
+  } = {
+    status: 'disabled',
+  };
+
+  if (isIotIntegrationEnabled() && result.device.inventoryId) {
+    try {
+      await syncCloudDeviceForBusinessDevice({
+        deviceId: result.device.id,
+        inventoryId: result.device.inventoryId,
+      });
+      await refreshDeviceRuntime(result.device.id).catch(() => null);
+      cloudBinding = {
+        status: 'linked',
+      };
+    } catch (error) {
+      cloudBinding = {
+        status: 'failed',
+        message: error instanceof Error ? error.message : '云设备映射失败。',
+      };
+    }
+  }
+
+  return {
+    ...result,
+    cloudBinding,
+  };
 }
 
 export async function updateDevice(input: {
@@ -165,101 +318,63 @@ export async function updateDevice(input: {
   body: Record<string, unknown>;
 }) {
   const { userId, deviceId } = input;
-  const { device, isOwner } = await getAccessibleDevice(deviceId, userId);
-
-  if (!device) {
-    throw new HttpError(404, '设备不存在或无权限。');
-  }
-
-  const fieldMap = {
-    name: 'name',
-    location: 'location',
-    isOn: 'is_on',
-    fireLevel: 'fire_level',
-    temp: 'temp',
-    gas: 'gas',
-    smoke: 'smoke',
-    flow: 'flow',
-    humanDetected: 'human_detected',
-    vibration: 'vibration',
-  } as const;
-  const ownerOnlyFields = new Set<keyof typeof fieldMap>([
-    'name',
-    'location',
-  ]);
-  const fields: Array<{ column: string; value: unknown; cast?: string }> = [];
+  const { device, isOwner } = await ensureAccessibleDeviceForUser(deviceId, userId);
   const body = input.body || {};
 
-  for (const key of Object.keys(fieldMap) as Array<keyof typeof fieldMap>) {
-    if (!(key in body)) {
-      continue;
-    }
+  const hasControlFields = hasOwn(body, 'isOn') || hasOwn(body, 'fireLevel');
+  const hasBusinessFields = hasOwn(body, 'name') || hasOwn(body, 'location');
+  const hasTelemetryFields = [
+    'temp',
+    'gas',
+    'smoke',
+    'flow',
+    'humanDetected',
+    'vibration',
+  ].some((key) => hasOwn(body, key));
 
-    if (ownerOnlyFields.has(key) && !isOwner) {
-      continue;
-    }
-
-    if (key === 'name') {
-      const name = String(body[key] || '').trim();
-      if (!name) {
-        throw new HttpError(400, '设备名称不能为空。');
-      }
-
-      const hasDuplicate = await findDuplicateDeviceName(
-        device.ownerId,
-        name,
-        poolExecutor,
-        deviceId
-      );
-
-      if (hasDuplicate) {
-        throw new HttpError(409, '当前账号下已存在同名设备。');
-      }
-
-      fields.push({ column: fieldMap[key], value: name });
-      continue;
-    }
-
-    if (key === 'location') {
-      const normalizedLocation = normalizeLocationForStorage(body[key]);
-      fields.push({
-        column: fieldMap[key],
-        value: JSON.stringify(normalizedLocation),
-        cast: '::jsonb',
-      });
-      fields.push({
-        column: 'region_path',
-        value: normalizedLocation
-          ? deriveLocationRegionPath(normalizedLocation, { includeDistrict: true })
-          : null,
-      });
-      continue;
-    }
-
-    fields.push({
-      column: fieldMap[key],
-      value: body[key],
-    });
-  }
-
-  if (!fields.length) {
+  if (!hasControlFields && !hasBusinessFields && !hasTelemetryFields) {
     throw new HttpError(400, '没有可更新的字段。');
   }
 
-  const assignments = fields.map(
-    (field, index) => `${field.column} = $${index + 1}${field.cast || ''}`
-  );
-  const values = fields.map((field) => field.value);
-  values.push(deviceId);
+  let changed = false;
 
-  await query(
-    `
-      UPDATE devices
-      SET ${assignments.join(', ')}, updated_at = NOW()
-      WHERE id = $${values.length}
-    `,
-    values
-  );
+  if (hasBusinessFields || (hasTelemetryFields && !isIotIntegrationEnabled())) {
+    changed = await applyLocalDeviceUpdates({
+      deviceId,
+      ownerId: userId,
+      currentOwnerId: device.ownerId,
+      isOwner,
+      body,
+    });
+  }
+
+  if (hasControlFields) {
+    if (isIotIntegrationEnabled()) {
+      await handleLegacyUserControl({
+        deviceId,
+        userUid: userId,
+        userName: userId,
+        isOn: hasOwn(body, 'isOn') ? body.isOn : undefined,
+        fireLevel: hasOwn(body, 'fireLevel') ? body.fireLevel : undefined,
+      });
+
+      await refreshDeviceRuntime(deviceId).catch(() => null);
+      changed = true;
+    } else {
+      changed =
+        (await applyLocalDeviceUpdates({
+          deviceId,
+          ownerId: userId,
+          currentOwnerId: device.ownerId,
+          isOwner,
+          body,
+        })) || changed;
+    }
+  }
+
+  if (!changed) {
+    throw new HttpError(400, '没有可更新的字段。');
+  }
 
   const refreshedDevice = await getDeviceById(deviceId);
 
@@ -304,7 +419,7 @@ export async function deleteDevice(input: { userId: string; deviceId: string }) 
 }
 
 export async function listDeviceLogs(input: { userId: string; deviceId: string }) {
-  const { device } = await getAccessibleDevice(input.deviceId, input.userId);
+  const { device } = await ensureAccessibleDeviceForUser(input.deviceId, input.userId);
 
   if (!device) {
     throw new HttpError(404, '设备不存在或无权限查看。');
@@ -319,7 +434,7 @@ export async function createDeviceLog(input: {
   event: string;
   type?: string;
 }) {
-  const { device } = await getAccessibleDevice(input.deviceId, input.userId);
+  const { device } = await ensureAccessibleDeviceForUser(input.deviceId, input.userId);
 
   if (!device) {
     throw new HttpError(404, '设备不存在或无权限操作。');
@@ -351,7 +466,7 @@ export async function shareDevice(input: {
 }) {
   const { userId, deviceId } = input;
   const targetUserId = String(input.targetUserId || '').trim();
-  const { device, isOwner } = await getAccessibleDevice(deviceId, userId);
+  const { device, isOwner } = await ensureAccessibleDeviceForUser(deviceId, userId);
 
   if (!device || !isOwner) {
     throw new HttpError(404, '设备不存在或无权限共享。');
@@ -384,7 +499,7 @@ export async function removeDeviceShare(input: {
   deviceId: string;
   targetUserId: string;
 }) {
-  const { device, isOwner } = await getAccessibleDevice(
+  const { device, isOwner } = await ensureAccessibleDeviceForUser(
     input.deviceId,
     input.userId
   );
@@ -399,4 +514,65 @@ export async function removeDeviceShare(input: {
   );
 
   return { ok: true };
+}
+
+export async function getUserDeviceRuntime(input: {
+  userId: string;
+  deviceId: string;
+}) {
+  await ensureAccessibleDeviceForUser(input.deviceId, input.userId);
+  return getDeviceRuntime(input.deviceId);
+}
+
+export async function refreshUserDeviceRuntime(input: {
+  userId: string;
+  deviceId: string;
+}) {
+  await ensureAccessibleDeviceForUser(input.deviceId, input.userId);
+  return refreshDeviceRuntime(input.deviceId);
+}
+
+export async function getUserDeviceShadow(input: {
+  userId: string;
+  deviceId: string;
+}) {
+  await ensureAccessibleDeviceForUser(input.deviceId, input.userId);
+  return getDeviceShadow(input.deviceId);
+}
+
+export async function getUserDeviceLiveProperties(input: {
+  userId: string;
+  deviceId: string;
+}) {
+  await ensureAccessibleDeviceForUser(input.deviceId, input.userId);
+  return getDeviceLiveProperties(input.deviceId);
+}
+
+export async function executeUserDeviceCommand(input: {
+  userId: string;
+  deviceId: string;
+  commandName: string;
+  paras?: Record<string, unknown>;
+}) {
+  await ensureAccessibleDeviceForUser(input.deviceId, input.userId);
+
+  const commandName = String(input.commandName || '').trim();
+  if (!commandName) {
+    throw new HttpError(400, '命令名称不能为空。');
+  }
+
+  const result = await sendDeviceCommand({
+    deviceId: input.deviceId,
+    operator: {
+      type: 'user',
+      userUid: input.userId,
+      name: input.userId,
+    },
+    commandName,
+    paras: input.paras || {},
+  });
+
+  await refreshDeviceRuntime(input.deviceId).catch(() => null);
+
+  return result;
 }

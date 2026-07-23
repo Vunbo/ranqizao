@@ -2,6 +2,7 @@ import { randomUUID } from 'crypto';
 import { Pool } from 'pg';
 import { env } from '../../config/env';
 import { applySchemaComments } from './schema-comments';
+import { ensureIotSchema } from './iot-schema';
 import { normalizeDeviceLocations } from './location-normalization';
 import {
   ensureDefaultAdminUser,
@@ -52,7 +53,7 @@ const CREATE_SCHEMA_SQL = `
     id TEXT PRIMARY KEY,
     target_type VARCHAR(16) NOT NULL CHECK (target_type IN ('phone')),
     target_value TEXT NOT NULL,
-    purpose VARCHAR(16) NOT NULL CHECK (purpose IN ('login', 'bind', 'unbind')),
+    purpose VARCHAR(16) NOT NULL CHECK (purpose IN ('login', 'register', 'bind', 'unbind')),
     code_hash TEXT NOT NULL,
     expires_at TIMESTAMPTZ NOT NULL,
     used_at TIMESTAMPTZ,
@@ -313,7 +314,7 @@ const ALTER_SCHEMA_SQL = `
     DROP CONSTRAINT IF EXISTS auth_verification_codes_purpose_check;
   ALTER TABLE auth_verification_codes
     ADD CONSTRAINT auth_verification_codes_purpose_check
-    CHECK (purpose IN ('login', 'bind', 'unbind'));
+    CHECK (purpose IN ('login', 'register', 'bind', 'unbind'));
 
   ALTER TABLE devices ADD COLUMN IF NOT EXISTS inventory_id TEXT;
   ALTER TABLE devices ADD COLUMN IF NOT EXISTS serial_number TEXT;
@@ -438,6 +439,7 @@ export async function ensureSchema(mainPool: Pool) {
   await mainPool.query(CREATE_SCHEMA_SQL);
   await mainPool.query(ALTER_SCHEMA_SQL);
   await mainPool.query(CLEANUP_LEGACY_COLUMNS_SQL);
+  await ensureIotSchema(mainPool);
 
   await backfillPrimaryEmails(mainPool);
   await backfillEmailPasswordIdentities(mainPool);
@@ -457,3 +459,4 @@ export async function ensureSchema(mainPool: Pool) {
   await applySchemaComments(mainPool);
   await normalizeDeviceLocations(mainPool);
 }
+

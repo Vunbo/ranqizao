@@ -1,10 +1,11 @@
-import cors from 'cors';
+﻿import cors from 'cors';
 import express from 'express';
 import { env } from '../config/env';
 import { query } from '../db/client';
 import { authRouter } from '../modules/auth/router';
 import { devicesRouter } from '../modules/devices/router';
 import { homesRouter } from '../modules/homes/router';
+import { iotRouter } from '../modules/iot/router';
 import { merchantRouter } from '../modules/merchant/router';
 import { opsAuthRouter } from '../modules/ops/auth/router';
 import { opsAlertsRouter } from '../modules/ops/alerts/router';
@@ -65,6 +66,7 @@ export function createApp() {
     })
   );
 
+  app.use('/api/iot', iotRouter);
   app.use('/api/auth', authRouter);
   app.use('/api/devices', devicesRouter);
   app.use('/api/homes', homesRouter);
