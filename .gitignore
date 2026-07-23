@@ -1,12 +1,13 @@
-# Local AI/editor state
-/.reasonix/
-/.codex/
-/.idea/
-/.vscode/
-/.claude/settings.local.json
+# Root allowlist: only project directories belong in this repository.
+/*
+!/.gitignore
+!/iot-app-dev/
+!/iot-app-flutter/
+!/iot-ops-web-dev/
+!/iot-platform-backend-dev/
+!/iot-uni-app/
 
-# Temporary work and diagnostics
-/tmp/
+# Temporary work and diagnostics inside project directories
 *.log
 *.pid
 *.hprof
