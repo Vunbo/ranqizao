@@ -3,7 +3,7 @@ class RuntimeConfig {
 
   static const String apiBaseUrl = String.fromEnvironment(
     'VITE_API_BASE_URL',
-    defaultValue: 'http://192.168.105.103:3001/api',
+    defaultValue: 'http://192.168.102.105:3001/api',
   );
 
   static const String miniProgramLoginPath = String.fromEnvironment(
@@ -33,6 +33,16 @@ class RuntimeConfig {
 
   static const String mallH5Url = String.fromEnvironment(
     'VITE_MALL_H5_URL',
-    defaultValue: 'https://zyhskj.shop/addons/yun_shop/?menu#/home?i=1',
+    defaultValue: 'https://h5.zyhskj.shop/',
+  );
+
+  static const bool mallPhoneLoginEnabled = bool.fromEnvironment(
+    'VITE_MALL_PHONE_LOGIN_ENABLED',
+    defaultValue: true,
+  );
+
+  static const String mallPhoneQueryParameter = String.fromEnvironment(
+    'VITE_MALL_PHONE_QUERY_PARAMETER',
+    defaultValue: 'phone',
   );
 }

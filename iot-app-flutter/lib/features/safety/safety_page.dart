@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../core/navigation/app_back_interceptor_registry.dart';
 import '../../core/theme.dart';
 import '../../core/user_identity.dart';
 import '../../models/device.dart';
@@ -22,10 +23,18 @@ class _SafetyPageState extends ConsumerState<SafetyPage> {
   List<_SafetyLog> _alertLogs = const [];
   List<_SafetyLog> _logs = const [];
   ProviderSubscription<DeviceState>? _deviceSubscription;
+  late final AppBackInterceptorRegistry _backInterceptorRegistry;
+  late final AppBackInterceptor _rootBackInterceptor;
 
   @override
   void initState() {
     super.initState();
+    _backInterceptorRegistry = ref.read(appBackInterceptorRegistryProvider);
+    _rootBackInterceptor = _handleRootBack;
+    _backInterceptorRegistry.register(
+      AppRootSection.safety,
+      _rootBackInterceptor,
+    );
     Future.microtask(() => ref.read(deviceProvider.notifier).loadDevices());
 
     _deviceSubscription = ref.listenManual(deviceProvider, (_, next) {
@@ -48,8 +57,20 @@ class _SafetyPageState extends ConsumerState<SafetyPage> {
 
   @override
   void dispose() {
+    _backInterceptorRegistry.unregister(
+      AppRootSection.safety,
+      _rootBackInterceptor,
+    );
     _deviceSubscription?.close();
     super.dispose();
+  }
+
+  bool _handleRootBack() {
+    if (!_dropdownOpen) {
+      return false;
+    }
+    setState(() => _dropdownOpen = false);
+    return true;
   }
 
   @override
@@ -69,7 +90,10 @@ class _SafetyPageState extends ConsumerState<SafetyPage> {
               SizedBox(height: 14),
               Text(
                 '请先添加设备以开启安全监控',
-                style: TextStyle(fontSize: 14, color: AppColors.textSecondary),
+                style: TextStyle(
+                  fontSize: 14,
+                  color: AppColors.textSecondary,
+                ),
               ),
             ],
           ),

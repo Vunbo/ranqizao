@@ -1,4 +1,4 @@
-﻿import 'package:flutter/material.dart';
+import 'package:flutter/material.dart';
 
 import '../core/theme.dart';
 import 'app_icon.dart';
@@ -43,7 +43,7 @@ class BottomNav extends StatelessWidget {
           return Expanded(
             child: GestureDetector(
               behavior: HitTestBehavior.opaque,
-              onTap: () => onChange(tab.id),
+              onTap: isActive ? null : () => onChange(tab.id),
               child: SizedBox(
                 height: 58,
                 child: Stack(

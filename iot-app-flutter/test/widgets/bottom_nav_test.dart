@@ -53,4 +53,26 @@ void main() {
     expect(firstTabSize.height, greaterThanOrEqualTo(58));
     expect(firstTabSize.width, greaterThanOrEqualTo(80));
   });
+
+  testWidgets('tapping the active tab does not trigger navigation again', (
+    tester,
+  ) async {
+    var navigationCount = 0;
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          bottomNavigationBar: BottomNav(
+            activeTab: 'home',
+            onChange: (_) => navigationCount += 1,
+          ),
+        ),
+      ),
+    );
+
+    await tester.tap(find.text('首页'));
+    await tester.pump();
+
+    expect(navigationCount, 0);
+  });
 }

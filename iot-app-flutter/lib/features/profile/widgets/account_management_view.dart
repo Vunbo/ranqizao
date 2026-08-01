@@ -1,4 +1,4 @@
-﻿import 'dart:async';
+import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -9,6 +9,7 @@ import '../../../providers/auth_provider.dart';
 import '../../../services/api_client.dart';
 import '../../../services/auth_service.dart';
 import '../../../widgets/app_icon.dart';
+import '../../../widgets/back_layer_scope.dart';
 import 'profile_subview_scaffold.dart';
 
 class AccountManagementView extends ConsumerStatefulWidget {
@@ -38,7 +39,8 @@ class _AccountManagementViewState extends ConsumerState<AccountManagementView> {
   final TextEditingController _bindEmailPasswordController =
       TextEditingController();
   final TextEditingController _bindPhoneController = TextEditingController();
-  final TextEditingController _bindPhoneCodeController = TextEditingController();
+  final TextEditingController _bindPhoneCodeController =
+      TextEditingController();
   final TextEditingController _unbindPasswordController =
       TextEditingController();
   final TextEditingController _unbindPhoneController = TextEditingController();
@@ -84,7 +86,8 @@ class _AccountManagementViewState extends ConsumerState<AccountManagementView> {
     super.dispose();
   }
 
-  List<_IdentityCardData> get _identityCards => _buildIdentityCards(_identities);
+  List<_IdentityCardData> get _identityCards =>
+      _buildIdentityCards(_identities);
 
   List<_VerifyMethodOption> get _availableVerifyMethods =>
       _buildVerifyMethods(_identities, _unbindTarget);
@@ -105,7 +108,8 @@ class _AccountManagementViewState extends ConsumerState<AccountManagementView> {
     });
 
     try {
-      final identities = await ref.read(authServiceProvider).listAuthIdentities();
+      final identities =
+          await ref.read(authServiceProvider).listAuthIdentities();
       if (!mounted) {
         return;
       }
@@ -158,7 +162,9 @@ class _AccountManagementViewState extends ConsumerState<AccountManagementView> {
     final newPassword = _newPasswordController.text.trim();
     final confirmPassword = _confirmPasswordController.text.trim();
 
-    if (currentPassword.isEmpty || newPassword.isEmpty || confirmPassword.isEmpty) {
+    if (currentPassword.isEmpty ||
+        newPassword.isEmpty ||
+        confirmPassword.isEmpty) {
       setState(() {
         _passwordError = '请完整填写密码信息';
       });
@@ -230,7 +236,8 @@ class _AccountManagementViewState extends ConsumerState<AccountManagementView> {
       case 'wechat':
         unawaited(
           _runIdentityMutation(
-            action: () => ref.read(authServiceProvider).bindMiniProgramIdentity(),
+            action: () =>
+                ref.read(authServiceProvider).bindMiniProgramIdentity(),
             successMessage: '微信小程序身份绑定成功',
             failureFallback: '微信小程序身份绑定失败',
           ),
@@ -295,6 +302,7 @@ class _AccountManagementViewState extends ConsumerState<AccountManagementView> {
       }
     }
   }
+
   Future<void> _submitBindEmail() async {
     final email = _bindEmailController.text.trim();
     final password = _bindEmailPasswordController.text.trim();
@@ -330,7 +338,8 @@ class _AccountManagementViewState extends ConsumerState<AccountManagementView> {
     });
 
     try {
-      final result = await ref.read(authServiceProvider).sendPhoneBindCode(phone);
+      final result =
+          await ref.read(authServiceProvider).sendPhoneBindCode(phone);
       if (!mounted) {
         return;
       }
@@ -585,149 +594,162 @@ class _AccountManagementViewState extends ConsumerState<AccountManagementView> {
       });
     });
   }
+
   @override
   Widget build(BuildContext context) {
     final user = ref.watch(authProvider).user;
     final uid = user?.uid ?? '';
 
-    return ProfileSubviewScaffold(
-      title: '账号管理',
-      onBack: widget.onBack,
-      child: Stack(
-        children: [
-          SingleChildScrollView(
-            padding: const EdgeInsets.fromLTRB(20, 0, 20, 24),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                ProfileSurfaceCard(
-                  padding: const EdgeInsets.all(16),
-                  child: Row(
-                    children: [
-                      const Text(
-                        '当前 UID',
-                        style: TextStyle(
-                          fontSize: 13,
-                          fontWeight: FontWeight.w700,
-                          color: AppColors.slate700,
-                        ),
-                      ),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: Text(
-                          uid,
-                          textAlign: TextAlign.right,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: const TextStyle(
-                            fontFamily: 'Courier New',
+    return BackLayerScope(
+      hasActiveLayer: _emailModalOpen || _phoneModalOpen || _unbindModalOpen,
+      onBack: () {
+        if (_unbindModalOpen) {
+          _closeUnbindModal();
+        } else if (_phoneModalOpen) {
+          _closePhoneModal();
+        } else if (_emailModalOpen) {
+          _closeEmailModal();
+        }
+      },
+      child: ProfileSubviewScaffold(
+        title: '账号管理',
+        onBack: widget.onBack,
+        child: Stack(
+          children: [
+            SingleChildScrollView(
+              padding: const EdgeInsets.fromLTRB(20, 0, 20, 24),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  ProfileSurfaceCard(
+                    padding: const EdgeInsets.all(16),
+                    child: Row(
+                      children: [
+                        const Text(
+                          '当前 UID',
+                          style: TextStyle(
                             fontSize: 13,
-                            color: AppColors.textSecondary,
+                            fontWeight: FontWeight.w700,
+                            color: AppColors.slate700,
                           ),
                         ),
-                      ),
-                    ],
-                  ),
-                ),
-                const SizedBox(height: 22),
-                const Text('账号绑定', style: AppTypography.sectionKicker),
-                const SizedBox(height: 12),
-                if (!_hasLoadedIdentities && _isLoadingIdentities)
-                  const Padding(
-                    padding: EdgeInsets.symmetric(vertical: 24),
-                    child: Center(
-                      child: SizedBox(
-                        width: 20,
-                        height: 20,
-                        child: CircularProgressIndicator(strokeWidth: 2),
-                      ),
-                    ),
-                  )
-                else ...[
-                  for (var index = 0; index < _identityCards.length; index++)
-                    _buildIdentityCard(
-                      _identityCards[index],
-                      withTopMargin: index > 0,
-                    ),
-                  if (_isLoadingIdentities) ...[
-                    const SizedBox(height: 12),
-                    const Center(
-                      child: SizedBox(
-                        width: 18,
-                        height: 18,
-                        child: CircularProgressIndicator(strokeWidth: 2),
-                      ),
-                    ),
-                  ],
-                ],
-                const SizedBox(height: 22),
-                const Text('修改密码', style: AppTypography.sectionKicker),
-                const SizedBox(height: 12),
-                ProfileSurfaceCard(
-                  padding: const EdgeInsets.all(16),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      _buildFieldLabel('旧密码'),
-                      _buildFilledInput(
-                        controller: _currentPasswordController,
-                        hintText: '请输入旧密码',
-                        obscureText: true,
-                        textInputAction: TextInputAction.next,
-                      ),
-                      const SizedBox(height: 14),
-                      _buildFieldLabel('新密码'),
-                      _buildFilledInput(
-                        controller: _newPasswordController,
-                        hintText: '请输入新密码',
-                        obscureText: true,
-                        textInputAction: TextInputAction.next,
-                      ),
-                      const SizedBox(height: 14),
-                      _buildFieldLabel('确认新密码'),
-                      _buildFilledInput(
-                        controller: _confirmPasswordController,
-                        hintText: '请再次输入新密码',
-                        obscureText: true,
-                        textInputAction: TextInputAction.done,
-                        onSubmitted: (_) => _submitChangePassword(),
-                      ),
-                      if (_passwordError.isNotEmpty) ...[
-                        const SizedBox(height: 12),
-                        Center(
+                        const SizedBox(width: 12),
+                        Expanded(
                           child: Text(
-                            _passwordError,
-                            textAlign: TextAlign.center,
+                            uid,
+                            textAlign: TextAlign.right,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
                             style: const TextStyle(
-                              fontSize: 12,
-                              fontWeight: FontWeight.w600,
-                              color: AppColors.danger,
+                              fontFamily: 'Courier New',
+                              fontSize: 13,
+                              color: AppColors.textSecondary,
                             ),
                           ),
                         ),
                       ],
-                      const SizedBox(height: 18),
-                      SizedBox(
-                        width: double.infinity,
-                        child: ProfileActionButton(
-                          label: _isSubmittingPassword ? '提交中...' : '确认修改',
-                          backgroundColor: AppColors.primary,
-                          textColor: Colors.white,
-                          onTap: _isSubmittingPassword
-                              ? null
-                              : _submitChangePassword,
+                    ),
+                  ),
+                  const SizedBox(height: 22),
+                  const Text('账号绑定', style: AppTypography.sectionKicker),
+                  const SizedBox(height: 12),
+                  if (!_hasLoadedIdentities && _isLoadingIdentities)
+                    const Padding(
+                      padding: EdgeInsets.symmetric(vertical: 24),
+                      child: Center(
+                        child: SizedBox(
+                          width: 20,
+                          height: 20,
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        ),
+                      ),
+                    )
+                  else ...[
+                    for (var index = 0; index < _identityCards.length; index++)
+                      _buildIdentityCard(
+                        _identityCards[index],
+                        withTopMargin: index > 0,
+                      ),
+                    if (_isLoadingIdentities) ...[
+                      const SizedBox(height: 12),
+                      const Center(
+                        child: SizedBox(
+                          width: 18,
+                          height: 18,
+                          child: CircularProgressIndicator(strokeWidth: 2),
                         ),
                       ),
                     ],
+                  ],
+                  const SizedBox(height: 22),
+                  const Text('修改密码', style: AppTypography.sectionKicker),
+                  const SizedBox(height: 12),
+                  ProfileSurfaceCard(
+                    padding: const EdgeInsets.all(16),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        _buildFieldLabel('旧密码'),
+                        _buildFilledInput(
+                          controller: _currentPasswordController,
+                          hintText: '请输入旧密码',
+                          obscureText: true,
+                          textInputAction: TextInputAction.next,
+                        ),
+                        const SizedBox(height: 14),
+                        _buildFieldLabel('新密码'),
+                        _buildFilledInput(
+                          controller: _newPasswordController,
+                          hintText: '请输入新密码',
+                          obscureText: true,
+                          textInputAction: TextInputAction.next,
+                        ),
+                        const SizedBox(height: 14),
+                        _buildFieldLabel('确认新密码'),
+                        _buildFilledInput(
+                          controller: _confirmPasswordController,
+                          hintText: '请再次输入新密码',
+                          obscureText: true,
+                          textInputAction: TextInputAction.done,
+                          onSubmitted: (_) => _submitChangePassword(),
+                        ),
+                        if (_passwordError.isNotEmpty) ...[
+                          const SizedBox(height: 12),
+                          Center(
+                            child: Text(
+                              _passwordError,
+                              textAlign: TextAlign.center,
+                              style: const TextStyle(
+                                fontSize: 12,
+                                fontWeight: FontWeight.w600,
+                                color: AppColors.danger,
+                              ),
+                            ),
+                          ),
+                        ],
+                        const SizedBox(height: 18),
+                        SizedBox(
+                          width: double.infinity,
+                          child: ProfileActionButton(
+                            label: _isSubmittingPassword ? '提交中...' : '确认修改',
+                            backgroundColor: AppColors.primary,
+                            textColor: Colors.white,
+                            onTap: _isSubmittingPassword
+                                ? null
+                                : _submitChangePassword,
+                          ),
+                        ),
+                      ],
+                    ),
                   ),
-                ),
-              ],
+                ],
+              ),
             ),
-          ),
-          if (_emailModalOpen) _buildEmailModal(),
-          if (_phoneModalOpen) _buildPhoneModal(),
-          if (_unbindModalOpen && _unbindTarget != null) _buildUnbindModal(),
-        ],
+            if (_emailModalOpen) _buildEmailModal(),
+            if (_phoneModalOpen) _buildPhoneModal(),
+            if (_unbindModalOpen && _unbindTarget != null) _buildUnbindModal(),
+          ],
+        ),
       ),
     );
   }
@@ -796,7 +818,8 @@ class _AccountManagementViewState extends ConsumerState<AccountManagementView> {
           ),
           const SizedBox(width: 12),
           GestureDetector(
-            onTap: item.actionDisabled ? null : () => _handleIdentityAction(item),
+            onTap:
+                item.actionDisabled ? null : () => _handleIdentityAction(item),
             child: Container(
               constraints: const BoxConstraints(minWidth: 72),
               height: 34,
@@ -820,6 +843,7 @@ class _AccountManagementViewState extends ConsumerState<AccountManagementView> {
       ),
     );
   }
+
   Widget _buildEmailModal() {
     return ProfileModalMask(
       onDismiss: () => _closeEmailModal(),
@@ -869,9 +893,8 @@ class _AccountManagementViewState extends ConsumerState<AccountManagementView> {
                     label: '取消',
                     backgroundColor: AppColors.slate50,
                     textColor: AppColors.slate600,
-                    onTap: _isSubmittingIdentity
-                        ? null
-                        : () => _closeEmailModal(),
+                    onTap:
+                        _isSubmittingIdentity ? null : () => _closeEmailModal(),
                   ),
                 ),
                 const SizedBox(width: 12),
@@ -946,9 +969,10 @@ class _AccountManagementViewState extends ConsumerState<AccountManagementView> {
                       style: TextStyle(
                         fontSize: 12,
                         fontWeight: FontWeight.w700,
-                        color: (_isSubmittingIdentity || _bindPhoneCountdown > 0)
-                            ? AppColors.textSecondary
-                            : AppColors.slate700,
+                        color:
+                            (_isSubmittingIdentity || _bindPhoneCountdown > 0)
+                                ? AppColors.textSecondary
+                                : AppColors.slate700,
                       ),
                     ),
                   ),
@@ -972,9 +996,8 @@ class _AccountManagementViewState extends ConsumerState<AccountManagementView> {
                     label: '取消',
                     backgroundColor: AppColors.slate50,
                     textColor: AppColors.slate600,
-                    onTap: _isSubmittingIdentity
-                        ? null
-                        : () => _closePhoneModal(),
+                    onTap:
+                        _isSubmittingIdentity ? null : () => _closePhoneModal(),
                   ),
                 ),
                 const SizedBox(width: 12),
@@ -1108,10 +1131,10 @@ class _AccountManagementViewState extends ConsumerState<AccountManagementView> {
                         style: TextStyle(
                           fontSize: 12,
                           fontWeight: FontWeight.w700,
-                          color:
-                              (_isSubmittingIdentity || _unbindPhoneCountdown > 0)
-                                  ? AppColors.textSecondary
-                                  : AppColors.slate700,
+                          color: (_isSubmittingIdentity ||
+                                  _unbindPhoneCountdown > 0)
+                              ? AppColors.textSecondary
+                              : AppColors.slate700,
                         ),
                       ),
                     ),
@@ -1214,6 +1237,7 @@ class _AccountManagementViewState extends ConsumerState<AccountManagementView> {
     );
   }
 }
+
 class _IdentityCardData {
   const _IdentityCardData({
     required this.key,
@@ -1367,10 +1391,12 @@ List<_VerifyMethodOption> _buildVerifyMethods(
     );
   }
   if (remaining.any((item) => item.provider == 'wechat_app')) {
-    methods.add(const _VerifyMethodOption(key: 'wechat_app', label: '微信 App 校验'));
+    methods
+        .add(const _VerifyMethodOption(key: 'wechat_app', label: '微信 App 校验'));
   }
   if (remaining.any((item) => item.provider == 'google_app')) {
-    methods.add(const _VerifyMethodOption(key: 'google_app', label: 'Google 校验'));
+    methods
+        .add(const _VerifyMethodOption(key: 'google_app', label: 'Google 校验'));
   }
 
   return methods;

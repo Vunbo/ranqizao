@@ -3,11 +3,13 @@
 WORKDIR /app
 
 COPY package.json package-lock.json ./
-RUN npm ci
+RUN npm ci --no-audit --no-fund
 
-COPY src ./src
-COPY tsconfig.json ./
+COPY --chown=node:node src ./src
+COPY --chown=node:node tsconfig.json ./
 
 EXPOSE 3001
 
-CMD ["npx", "tsx", "src/index.ts"]
+USER node
+
+CMD ["npm", "run", "start:docker"]

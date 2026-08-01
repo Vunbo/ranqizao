@@ -1,7 +1,11 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 
+import '../../core/navigation/app_back_interceptor_registry.dart';
 import '../../core/user_identity.dart';
 import '../../core/theme.dart';
 import '../../models/merchant.dart';
@@ -11,14 +15,7 @@ import '../../providers/home_provider.dart';
 import '../../services/api_client.dart';
 import '../../services/merchant_service.dart';
 import '../../widgets/app_icon.dart';
-import 'widgets/account_management_view.dart';
-import 'widgets/device_management_view.dart';
-import 'widgets/home_management_view.dart';
-import 'widgets/merchant_landing_view.dart';
-import 'widgets/merchant_panel_view.dart';
-import 'widgets/notification_settings_view.dart';
 import 'widgets/profile_subview_scaffold.dart';
-import 'widgets/sharing_management_view.dart';
 
 class ProfilePage extends ConsumerStatefulWidget {
   const ProfilePage({super.key});
@@ -34,12 +31,19 @@ class _ProfilePageState extends ConsumerState<ProfilePage> {
   bool _isEditNameModalOpen = false;
   bool _isUpdatingDisplayName = false;
   bool _isLoadingMerchantSummary = false;
-  String _activeSubView = 'main';
   MerchantSummary? _merchantSummary;
+  late final AppBackInterceptorRegistry _backInterceptorRegistry;
+  late final AppBackInterceptor _rootBackInterceptor;
 
   @override
   void initState() {
     super.initState();
+    _backInterceptorRegistry = ref.read(appBackInterceptorRegistryProvider);
+    _rootBackInterceptor = _handleRootBack;
+    _backInterceptorRegistry.register(
+      AppRootSection.profile,
+      _rootBackInterceptor,
+    );
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) {
         return;
@@ -63,8 +67,20 @@ class _ProfilePageState extends ConsumerState<ProfilePage> {
 
   @override
   void dispose() {
+    _backInterceptorRegistry.unregister(
+      AppRootSection.profile,
+      _rootBackInterceptor,
+    );
     _editDisplayNameController.dispose();
     super.dispose();
+  }
+
+  bool _handleRootBack() {
+    if (!_isEditNameModalOpen) {
+      return false;
+    }
+    _closeEditName();
+    return true;
   }
 
   Future<void> _loadMerchantSummary({bool silent = false}) async {
@@ -119,19 +135,16 @@ class _ProfilePageState extends ConsumerState<ProfilePage> {
 
   void _openSubView(String id) {
     if (id == 'merchant' || id == 'merchant-panel') {
-      _loadMerchantSummary(silent: true);
+      unawaited(_loadMerchantSummary(silent: true));
     }
-
-    setState(() {
-      _activeSubView = id;
-    });
-  }
-
-  void _closeSubView() {
-    setState(() {
-      _activeSubView = 'main';
-    });
-    _loadMerchantSummary(silent: true);
+    unawaited(
+      context.push('/profile/$id').then((_) {
+        if (mounted) {
+          return _loadMerchantSummary(silent: true);
+        }
+        return null;
+      }),
+    );
   }
 
   Future<void> _handleUpdateDisplayName(String currentDisplayName) async {
@@ -204,55 +217,8 @@ class _ProfilePageState extends ConsumerState<ProfilePage> {
     );
   }
 
-  Widget _buildSubView() {
-    switch (_activeSubView) {
-      case 'merchant':
-        return MerchantLandingView(
-          onBack: _closeSubView,
-          onMessage: _showSnackBar,
-        );
-      case 'merchant-panel':
-        return MerchantPanelView(
-          onBack: _closeSubView,
-          onMessage: _showSnackBar,
-        );
-      case 'account':
-        return AccountManagementView(
-          onBack: _closeSubView,
-          onMessage: _showSnackBar,
-        );
-      case 'devices':
-        return DeviceManagementView(
-          onBack: _closeSubView,
-          onMessage: _showSnackBar,
-        );
-      case 'homes':
-        return HomeManagementView(
-          onBack: _closeSubView,
-          onMessage: _showSnackBar,
-        );
-      case 'sharing':
-        return SharingManagementView(
-          onBack: _closeSubView,
-          onMessage: _showSnackBar,
-        );
-      case 'notifications':
-        return NotificationSettingsView(onBack: _closeSubView);
-      default:
-        return _PlaceholderSubview(
-            title: _activeSubView, onBack: _closeSubView);
-    }
-  }
-
   @override
   Widget build(BuildContext context) {
-    if (_activeSubView != 'main') {
-      return Scaffold(
-        backgroundColor: AppColors.pageBg,
-        body: _buildSubView(),
-      );
-    }
-
     final authState = ref.watch(authProvider);
     final deviceState = ref.watch(deviceProvider);
     final homeState = ref.watch(homeProvider);
@@ -703,32 +669,4 @@ class _ProfileItem {
   final String label;
   final String extra;
   final Color iconColor;
-}
-
-class _PlaceholderSubview extends StatelessWidget {
-  const _PlaceholderSubview({
-    required this.title,
-    required this.onBack,
-  });
-
-  final String title;
-  final VoidCallback onBack;
-
-  @override
-  Widget build(BuildContext context) {
-    return ProfileSubviewScaffold(
-      title: title,
-      onBack: onBack,
-      child: Center(
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 32),
-          child: Text(
-            '$title 页面将在后续阶段按 uni-app 1:1 迁移。',
-            style: const TextStyle(color: AppColors.textMuted),
-            textAlign: TextAlign.center,
-          ),
-        ),
-      ),
-    );
-  }
 }

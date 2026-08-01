@@ -10,6 +10,7 @@ import '../../../providers/device_provider.dart';
 import '../../../providers/home_provider.dart';
 import '../../../services/api_client.dart';
 import '../../../widgets/app_icon.dart';
+import '../../../widgets/back_layer_scope.dart';
 import 'profile_subview_scaffold.dart';
 
 class SharingManagementView extends ConsumerStatefulWidget {
@@ -264,43 +265,53 @@ class _SharingManagementViewState extends ConsumerState<SharingManagementView> {
         homeState.homes.isEmpty &&
         deviceState.devices.isEmpty;
 
-    return ProfileSubviewScaffold(
-      title: '共享管理',
-      onBack: widget.onBack,
-      child: Stack(
-        children: [
-          if (isInitialLoading)
-            const Center(
-              child: SizedBox(
-                width: 22,
-                height: 22,
-                child: CircularProgressIndicator(strokeWidth: 2),
+    return BackLayerScope(
+      hasActiveLayer: _isAddMemberModalOpen || _isRemoveMemberModalOpen,
+      onBack: () {
+        if (_isRemoveMemberModalOpen) {
+          _closeRemoveMemberModal();
+        } else if (_isAddMemberModalOpen) {
+          _closeAddMemberModal();
+        }
+      },
+      child: ProfileSubviewScaffold(
+        title: '共享管理',
+        onBack: widget.onBack,
+        child: Stack(
+          children: [
+            if (isInitialLoading)
+              const Center(
+                child: SizedBox(
+                  width: 22,
+                  height: 22,
+                  child: CircularProgressIndicator(strokeWidth: 2),
+                ),
+              )
+            else
+              SingleChildScrollView(
+                padding: const EdgeInsets.fromLTRB(20, 0, 20, 24),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    _buildMainTabs(),
+                    const SizedBox(height: 12),
+                    _buildSubTabs(),
+                    const SizedBox(height: 16),
+                    _buildContent(
+                      ownerLabel: ownerLabel,
+                      myHomes: myHomes,
+                      myDevices: myDevices,
+                      friendHomes: friendHomes,
+                      friendDevices: friendDevices,
+                    ),
+                  ],
+                ),
               ),
-            )
-          else
-            SingleChildScrollView(
-              padding: const EdgeInsets.fromLTRB(20, 0, 20, 24),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  _buildMainTabs(),
-                  const SizedBox(height: 12),
-                  _buildSubTabs(),
-                  const SizedBox(height: 16),
-                  _buildContent(
-                    ownerLabel: ownerLabel,
-                    myHomes: myHomes,
-                    myDevices: myDevices,
-                    friendHomes: friendHomes,
-                    friendDevices: friendDevices,
-                  ),
-                ],
-              ),
-            ),
-          if (_isAddMemberModalOpen) _buildAddMemberModal(shortUid),
-          if (_isRemoveMemberModalOpen && _targetResource != null)
-            _buildRemoveMemberModal(),
-        ],
+            if (_isAddMemberModalOpen) _buildAddMemberModal(shortUid),
+            if (_isRemoveMemberModalOpen && _targetResource != null)
+              _buildRemoveMemberModal(),
+          ],
+        ),
       ),
     );
   }

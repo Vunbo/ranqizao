@@ -6,6 +6,7 @@ import '../../../models/merchant.dart';
 import '../../../services/api_client.dart';
 import '../../../services/merchant_service.dart';
 import '../../../widgets/app_icon.dart';
+import '../../../widgets/back_layer_scope.dart';
 import 'profile_subview_scaffold.dart';
 
 class MerchantLandingView extends ConsumerStatefulWidget {
@@ -595,261 +596,122 @@ class _MerchantLandingViewState extends ConsumerState<MerchantLandingView> {
             ),
           );
 
-    return ProfileSubviewScaffold(
-      title: '推广 / 入驻',
-      subtitle: '合作方案与商户入驻申请',
-      onBack: widget.onBack,
-      trailing: GestureDetector(
-        onTap: (_isLoading || _isRefreshing) ? null : () => _load(silent: true),
-        child: Container(
-          height: 38,
-          padding: const EdgeInsets.symmetric(horizontal: 14),
-          decoration: BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.circular(16),
-            boxShadow: [
-              BoxShadow(
-                color: Colors.black.withValues(alpha: 0.08),
-                blurRadius: 24,
-                offset: const Offset(0, 10),
-              ),
-            ],
-          ),
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              AppIcon(
-                name: 'loader',
-                size: 14,
-                color: AppColors.textMuted,
-                animated: _isRefreshing,
-              ),
-              const SizedBox(width: 6),
-              Text(
-                _isRefreshing ? '刷新中' : '刷新内容',
-                style: const TextStyle(
-                  fontSize: 12,
-                  fontWeight: FontWeight.w700,
-                  color: AppColors.textMuted,
+    return BackLayerScope(
+      hasActiveLayer: _isContactOpen || _isApplyOpen,
+      onBack: () {
+        if (_isApplyOpen) {
+          _closeApply();
+        } else if (_isContactOpen) {
+          _closeContact();
+        }
+      },
+      child: ProfileSubviewScaffold(
+        title: '推广 / 入驻',
+        subtitle: '合作方案与商户入驻申请',
+        onBack: widget.onBack,
+        trailing: GestureDetector(
+          onTap:
+              (_isLoading || _isRefreshing) ? null : () => _load(silent: true),
+          child: Container(
+            height: 38,
+            padding: const EdgeInsets.symmetric(horizontal: 14),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(16),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withValues(alpha: 0.08),
+                  blurRadius: 24,
+                  offset: const Offset(0, 10),
                 ),
-              ),
-            ],
+              ],
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                AppIcon(
+                  name: 'loader',
+                  size: 14,
+                  color: AppColors.textMuted,
+                  animated: _isRefreshing,
+                ),
+                const SizedBox(width: 6),
+                Text(
+                  _isRefreshing ? '刷新中' : '刷新内容',
+                  style: const TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w700,
+                    color: AppColors.textMuted,
+                  ),
+                ),
+              ],
+            ),
           ),
         ),
-      ),
-      child: Stack(
-        children: [
-          content,
-          if (_isContactOpen)
-            ProfileModalMask(
-              onDismiss: _closeContact,
-              child: ConstrainedBox(
-                constraints: const BoxConstraints(maxWidth: 340),
-                child: Container(
-                  width: double.infinity,
-                  padding: const EdgeInsets.all(24),
-                  decoration: BoxDecoration(
-                    color: Colors.white,
-                    borderRadius: BorderRadius.circular(28),
-                  ),
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      if (_contact.title.isNotEmpty)
-                        Text(
-                          _contact.title,
-                          style: const TextStyle(
-                            fontSize: 18,
-                            fontWeight: FontWeight.w700,
-                            color: AppColors.textPrimary,
-                          ),
-                        ),
-                      ..._contactEntries.map(
-                        (entry) => Padding(
-                          padding: const EdgeInsets.only(top: 12),
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                entry.label,
-                                style: const TextStyle(
-                                  fontSize: 12,
-                                  fontWeight: FontWeight.w700,
-                                  color: AppColors.slate700,
-                                ),
-                              ),
-                              const SizedBox(height: 8),
-                              Text(
-                                entry.value,
-                                style: const TextStyle(
-                                  fontSize: 13,
-                                  height: 1.7,
-                                  color: AppColors.slate600,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ),
-                      const SizedBox(height: 22),
-                      Row(
-                        children: [
-                          Expanded(
-                            child: ProfileActionButton(
-                              label: '关闭',
-                              backgroundColor: AppColors.primary,
-                              textColor: Colors.white,
-                              onTap: _closeContact,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-            ),
-          if (_isApplyOpen)
-            ProfileModalMask(
-              onDismiss: () => _closeApply(),
-              child: ConstrainedBox(
-                constraints: BoxConstraints(
-                  maxWidth: 360,
-                  maxHeight: MediaQuery.of(context).size.height * 0.8,
-                ),
-                child: Container(
-                  width: double.infinity,
-                  padding: const EdgeInsets.all(24),
-                  decoration: BoxDecoration(
-                    color: Colors.white,
-                    borderRadius: BorderRadius.circular(28),
-                  ),
-                  child: SingleChildScrollView(
+        child: Stack(
+          children: [
+            content,
+            if (_isContactOpen)
+              ProfileModalMask(
+                onDismiss: _closeContact,
+                child: ConstrainedBox(
+                  constraints: const BoxConstraints(maxWidth: 340),
+                  child: Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.all(24),
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(28),
+                    ),
                     child: Column(
+                      mainAxisSize: MainAxisSize.min,
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        const Text(
-                          '申请入驻',
-                          style: TextStyle(
-                            fontSize: 18,
-                            fontWeight: FontWeight.w700,
-                            color: AppColors.textPrimary,
+                        if (_contact.title.isNotEmpty)
+                          Text(
+                            _contact.title,
+                            style: const TextStyle(
+                              fontSize: 18,
+                              fontWeight: FontWeight.w700,
+                              color: AppColors.textPrimary,
+                            ),
                           ),
-                        ),
-                        const SizedBox(height: 8),
-                        const Text(
-                          '请完善商户信息，提交后由平台审核。',
-                          style: TextStyle(
-                            fontSize: 12,
-                            height: 1.7,
-                            color: AppColors.textMuted,
-                          ),
-                        ),
-                        const SizedBox(height: 16),
-                        const Text(
-                          '入驻级别',
-                          style: TextStyle(
-                            fontSize: 12,
-                            fontWeight: FontWeight.w700,
-                            color: AppColors.slate700,
-                          ),
-                        ),
-                        const SizedBox(height: 8),
-                        Row(
-                          children: _levelOptions
-                              .map(
-                                (option) => Expanded(
-                                  child: Padding(
-                                    padding: EdgeInsets.only(
-                                      right: option == _levelOptions.first
-                                          ? 10
-                                          : 0,
-                                    ),
-                                    child: GestureDetector(
-                                      onTap: () {
-                                        setState(() {
-                                          _levelCode = option.value;
-                                        });
-                                      },
-                                      child: Container(
-                                        height: 42,
-                                        decoration: BoxDecoration(
-                                          color: _levelCode == option.value
-                                              ? AppColors.primaryLight
-                                              : AppColors.slate50,
-                                          borderRadius:
-                                              BorderRadius.circular(16),
-                                        ),
-                                        alignment: Alignment.center,
-                                        child: Text(
-                                          option.label,
-                                          style: TextStyle(
-                                            fontSize: 13,
-                                            fontWeight: FontWeight.w700,
-                                            color: _levelCode == option.value
-                                                ? AppColors.primary
-                                                : AppColors.textMuted,
-                                          ),
-                                        ),
-                                      ),
-                                    ),
+                        ..._contactEntries.map(
+                          (entry) => Padding(
+                            padding: const EdgeInsets.only(top: 12),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  entry.label,
+                                  style: const TextStyle(
+                                    fontSize: 12,
+                                    fontWeight: FontWeight.w700,
+                                    color: AppColors.slate700,
                                   ),
                                 ),
-                              )
-                              .toList(growable: false),
-                        ),
-                        const SizedBox(height: 16),
-                        _FormField(
-                          label: '商户名称',
-                          controller: _merchantNameController,
-                          hintText: '请输入商户名称',
-                        ),
-                        _FormField(
-                          label: '联系人',
-                          controller: _contactNameController,
-                          hintText: '请输入联系人',
-                        ),
-                        _FormField(
-                          label: '联系电话',
-                          controller: _contactPhoneController,
-                          hintText: '请输入联系电话',
-                        ),
-                        _FormField(
-                          label: '所在区域',
-                          controller: _regionController,
-                          hintText: '如：上海市闵行区',
-                        ),
-                        _FormField(
-                          label: '联系地址',
-                          controller: _addressController,
-                          hintText: '请输入联系地址',
-                        ),
-                        _FormField(
-                          label: '补充说明',
-                          controller: _noteController,
-                          hintText: '选填，可填写合作说明',
-                          maxLines: 5,
+                                const SizedBox(height: 8),
+                                Text(
+                                  entry.value,
+                                  style: const TextStyle(
+                                    fontSize: 13,
+                                    height: 1.7,
+                                    color: AppColors.slate600,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
                         ),
                         const SizedBox(height: 22),
                         Row(
                           children: [
                             Expanded(
                               child: ProfileActionButton(
-                                label: '取消',
-                                backgroundColor: AppColors.slate50,
-                                textColor: AppColors.slate700,
-                                onTap:
-                                    _isSubmitting ? null : () => _closeApply(),
-                              ),
-                            ),
-                            const SizedBox(width: 12),
-                            Expanded(
-                              child: ProfileActionButton(
-                                label: _isSubmitting ? '提交中...' : '提交申请',
+                                label: '关闭',
                                 backgroundColor: AppColors.primary,
                                 textColor: Colors.white,
-                                onTap: _isSubmitting ? null : _submit,
+                                onTap: _closeContact,
                               ),
                             ),
                           ],
@@ -859,8 +721,159 @@ class _MerchantLandingViewState extends ConsumerState<MerchantLandingView> {
                   ),
                 ),
               ),
-            ),
-        ],
+            if (_isApplyOpen)
+              ProfileModalMask(
+                onDismiss: () => _closeApply(),
+                child: ConstrainedBox(
+                  constraints: BoxConstraints(
+                    maxWidth: 360,
+                    maxHeight: MediaQuery.of(context).size.height * 0.8,
+                  ),
+                  child: Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.all(24),
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(28),
+                    ),
+                    child: SingleChildScrollView(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const Text(
+                            '申请入驻',
+                            style: TextStyle(
+                              fontSize: 18,
+                              fontWeight: FontWeight.w700,
+                              color: AppColors.textPrimary,
+                            ),
+                          ),
+                          const SizedBox(height: 8),
+                          const Text(
+                            '请完善商户信息，提交后由平台审核。',
+                            style: TextStyle(
+                              fontSize: 12,
+                              height: 1.7,
+                              color: AppColors.textMuted,
+                            ),
+                          ),
+                          const SizedBox(height: 16),
+                          const Text(
+                            '入驻级别',
+                            style: TextStyle(
+                              fontSize: 12,
+                              fontWeight: FontWeight.w700,
+                              color: AppColors.slate700,
+                            ),
+                          ),
+                          const SizedBox(height: 8),
+                          Row(
+                            children: _levelOptions
+                                .map(
+                                  (option) => Expanded(
+                                    child: Padding(
+                                      padding: EdgeInsets.only(
+                                        right: option == _levelOptions.first
+                                            ? 10
+                                            : 0,
+                                      ),
+                                      child: GestureDetector(
+                                        onTap: () {
+                                          setState(() {
+                                            _levelCode = option.value;
+                                          });
+                                        },
+                                        child: Container(
+                                          height: 42,
+                                          decoration: BoxDecoration(
+                                            color: _levelCode == option.value
+                                                ? AppColors.primaryLight
+                                                : AppColors.slate50,
+                                            borderRadius:
+                                                BorderRadius.circular(16),
+                                          ),
+                                          alignment: Alignment.center,
+                                          child: Text(
+                                            option.label,
+                                            style: TextStyle(
+                                              fontSize: 13,
+                                              fontWeight: FontWeight.w700,
+                                              color: _levelCode == option.value
+                                                  ? AppColors.primary
+                                                  : AppColors.textMuted,
+                                            ),
+                                          ),
+                                        ),
+                                      ),
+                                    ),
+                                  ),
+                                )
+                                .toList(growable: false),
+                          ),
+                          const SizedBox(height: 16),
+                          _FormField(
+                            label: '商户名称',
+                            controller: _merchantNameController,
+                            hintText: '请输入商户名称',
+                          ),
+                          _FormField(
+                            label: '联系人',
+                            controller: _contactNameController,
+                            hintText: '请输入联系人',
+                          ),
+                          _FormField(
+                            label: '联系电话',
+                            controller: _contactPhoneController,
+                            hintText: '请输入联系电话',
+                          ),
+                          _FormField(
+                            label: '所在区域',
+                            controller: _regionController,
+                            hintText: '如：上海市闵行区',
+                          ),
+                          _FormField(
+                            label: '联系地址',
+                            controller: _addressController,
+                            hintText: '请输入联系地址',
+                          ),
+                          _FormField(
+                            label: '补充说明',
+                            controller: _noteController,
+                            hintText: '选填，可填写合作说明',
+                            maxLines: 5,
+                          ),
+                          const SizedBox(height: 22),
+                          Row(
+                            children: [
+                              Expanded(
+                                child: ProfileActionButton(
+                                  label: '取消',
+                                  backgroundColor: AppColors.slate50,
+                                  textColor: AppColors.slate700,
+                                  onTap: _isSubmitting
+                                      ? null
+                                      : () => _closeApply(),
+                                ),
+                              ),
+                              const SizedBox(width: 12),
+                              Expanded(
+                                child: ProfileActionButton(
+                                  label: _isSubmitting ? '提交中...' : '提交申请',
+                                  backgroundColor: AppColors.primary,
+                                  textColor: Colors.white,
+                                  onTap: _isSubmitting ? null : _submit,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+          ],
+        ),
       ),
     );
   }

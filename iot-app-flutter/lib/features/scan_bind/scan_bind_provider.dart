@@ -18,6 +18,13 @@ enum ScanBindStep {
   success,
 }
 
+ScanBindStep? previousScanBindStep(ScanBindStep step) => switch (step) {
+      ScanBindStep.location => ScanBindStep.scan,
+      ScanBindStep.wifi => ScanBindStep.location,
+      ScanBindStep.configuring || ScanBindStep.naming => ScanBindStep.wifi,
+      ScanBindStep.scan || ScanBindStep.success => null,
+    };
+
 enum ScanBindingMode {
   inventory,
   mock,
@@ -313,6 +320,31 @@ class ScanBindNotifier extends StateNotifier<ScanBindState> {
         ScanBindNoticeType.error,
       );
     }
+  }
+
+  bool handleBack() {
+    if (state.permissionDialog.visible) {
+      closePermissionDialog();
+      return true;
+    }
+    if (state.isLoading) {
+      return true;
+    }
+
+    final previousStep = previousScanBindStep(state.step);
+    if (previousStep == null) {
+      return false;
+    }
+
+    if (state.step == ScanBindStep.configuring ||
+        state.step == ScanBindStep.naming) {
+      _clearTimers();
+    }
+    state = state.copyWith(
+      step: previousStep,
+      configProgress: previousStep == ScanBindStep.wifi ? 0 : null,
+    );
+    return true;
   }
 
   void resetFlow() {

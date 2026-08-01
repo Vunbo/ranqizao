@@ -3,16 +3,20 @@ import 'dart:math' as math;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:geocoding/geocoding.dart';
 import 'package:geolocator/geolocator.dart';
-import 'package:permission_handler/permission_handler.dart';
 
 import '../models/device_binding.dart';
+import 'app_permission_service.dart';
 
 class DeviceBindingRuntimeService {
-  const DeviceBindingRuntimeService();
+  const DeviceBindingRuntimeService({
+    AppPermissionService permissionService = const AppPermissionService(),
+  }) : _permissionService = permissionService;
+
+  final AppPermissionService _permissionService;
 
   Future<void> ensureCameraPermission() async {
-    final status = await Permission.camera.request();
-    if (status.isGranted) {
+    final decision = await _permissionService.requestCamera();
+    if (decision == AppPermissionDecision.granted) {
       return;
     }
 
@@ -115,7 +119,7 @@ class DeviceBindingRuntimeService {
   }
 
   Future<void> openSystemSettings() async {
-    final opened = await openAppSettings();
+    final opened = await _permissionService.openSettings();
     if (!opened) {
       throw Exception('打开系统权限设置失败');
     }
@@ -124,7 +128,9 @@ class DeviceBindingRuntimeService {
 
 final deviceBindingRuntimeServiceProvider =
     Provider<DeviceBindingRuntimeService>((ref) {
-  return const DeviceBindingRuntimeService();
+  return DeviceBindingRuntimeService(
+    permissionService: ref.watch(appPermissionServiceProvider),
+  );
 });
 
 String _firstText(String? first, [String? second, String? third]) {

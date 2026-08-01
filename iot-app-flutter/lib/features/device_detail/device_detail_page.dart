@@ -1,4 +1,4 @@
-﻿import 'dart:math' as math;
+import 'dart:math' as math;
 import 'dart:ui' show ImageFilter;
 
 import 'package:flutter/material.dart';
@@ -13,6 +13,7 @@ import '../../providers/auth_provider.dart';
 import '../../providers/device_provider.dart';
 import '../../services/api_client.dart';
 import '../../widgets/app_icon.dart';
+import '../../widgets/back_layer_scope.dart';
 import 'device_detail_support.dart';
 
 class DeviceDetailPage extends ConsumerStatefulWidget {
@@ -466,118 +467,130 @@ class _DeviceDetailPageState extends ConsumerState<DeviceDetailPage>
     final deviceState = ref.watch(deviceProvider);
     final device = deviceState.selectedDevice;
 
-    return Scaffold(
-      backgroundColor: AppColors.pageBg,
-      body: Stack(
-        children: [
-          Positioned.fill(
-            child: device == null
-                ? _DeviceDetailEmptyState(
-                    isLoading: deviceState.isLoading,
-                    error: deviceState.error,
-                    onRetry: _loadDetail,
-                  )
-                : RefreshIndicator(
-                    onRefresh: _loadDetail,
-                    child: SingleChildScrollView(
-                      physics: const AlwaysScrollableScrollPhysics(),
-                      padding: const EdgeInsets.fromLTRB(20, 4, 20, 24),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          _DeviceDetailHeader(
-                            device: device,
-                            isOwner: _isOwner(device, authState.user),
-                            onBack: _handleBack,
-                            onRename: () => _openRename(device),
-                            onShare: _openShare,
-                            onDelete: () => _handleDelete(device),
-                          ),
-                          if (deviceState.isLoading) ...[
-                            const SizedBox(height: 10),
-                            ClipRRect(
-                              borderRadius: BorderRadius.circular(999),
-                              child:
-                                  const LinearProgressIndicator(minHeight: 3),
+    return BackLayerScope(
+      hasActiveLayer: _isRenameModalOpen || _isShareModalOpen,
+      onBack: () {
+        if (_isShareModalOpen) {
+          _closeShare();
+        } else if (_isRenameModalOpen) {
+          _closeRename();
+        }
+      },
+      child: Scaffold(
+        backgroundColor: AppColors.pageBg,
+        body: Stack(
+          children: [
+            Positioned.fill(
+              child: device == null
+                  ? _DeviceDetailEmptyState(
+                      isLoading: deviceState.isLoading,
+                      error: deviceState.error,
+                      onRetry: _loadDetail,
+                    )
+                  : RefreshIndicator(
+                      onRefresh: _loadDetail,
+                      child: SingleChildScrollView(
+                        physics: const AlwaysScrollableScrollPhysics(),
+                        padding: const EdgeInsets.fromLTRB(20, 4, 20, 24),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            _DeviceDetailHeader(
+                              device: device,
+                              isOwner: _isOwner(device, authState.user),
+                              onBack: _handleBack,
+                              onRename: () => _openRename(device),
+                              onShare: _openShare,
+                              onDelete: () => _handleDelete(device),
                             ),
-                          ],
-                          const SizedBox(height: 18),
-                          _DeviceControlCard(
-                            isOn: device.isOn,
-                            fireLevel: device.fireLevel,
-                            isPending: _isPending,
-                            pulseAnimation: _pulseController,
-                            onToggle: () => _handleToggle(device),
-                            onFireLevel: (level) =>
-                                _handleFireLevel(device, level),
-                          ),
-                          const SizedBox(height: 18),
-                          Row(
-                            children: [
-                              Expanded(
-                                child: _DeviceStatCard(
-                                  iconName: 'thermometer',
-                                  iconColor: AppColors.primary,
-                                  iconBackground: const Color(0xFFFFF7ED),
-                                  label: '锅底温度',
-                                  value: '${device.temp.toStringAsFixed(1)}°C',
-                                ),
-                              ),
-                              const SizedBox(width: 12),
-                              Expanded(
-                                child: _DeviceStatCard(
-                                  iconName: 'droplet',
-                                  iconColor: AppColors.info,
-                                  iconBackground: const Color(0xFFEFF6FF),
-                                  label: '燃气浓度',
-                                  value:
-                                      '${device.gas.toStringAsFixed(2)}% LEL',
-                                ),
+                            if (deviceState.isLoading) ...[
+                              const SizedBox(height: 10),
+                              ClipRRect(
+                                borderRadius: BorderRadius.circular(999),
+                                child:
+                                    const LinearProgressIndicator(minHeight: 3),
                               ),
                             ],
-                          ),
-                          const SizedBox(height: 22),
-                          Text(
-                            '智能烹饪模式',
-                            style: AppTypography.body.copyWith(
-                              fontSize: 15,
-                              fontWeight: FontWeight.w700,
+                            const SizedBox(height: 18),
+                            _DeviceControlCard(
+                              isOn: device.isOn,
+                              fireLevel: device.fireLevel,
+                              isPending: _isPending,
+                              pulseAnimation: _pulseController,
+                              onToggle: () => _handleToggle(device),
+                              onFireLevel: (level) =>
+                                  _handleFireLevel(device, level),
                             ),
-                          ),
-                          const SizedBox(height: 12),
-                          LayoutBuilder(
-                            builder: (context, constraints) {
-                              final itemWidth = (constraints.maxWidth - 12) / 2;
-                              return Wrap(
-                                spacing: 12,
-                                runSpacing: 12,
-                                children: cookingModes.map((mode) {
-                                  final active = device.isOn &&
-                                      device.fireLevel == mode.level;
-                                  return SizedBox(
-                                    width: itemWidth,
-                                    child: _CookingModeCard(
-                                      mode: mode,
-                                      active: active,
-                                      enabled: device.isOn && !_isPending,
-                                      pulseAnimation: _pulseController,
-                                      onTap: () =>
-                                          _handleFireLevel(device, mode.level),
-                                    ),
-                                  );
-                                }).toList(growable: false),
-                              );
-                            },
-                          ),
-                        ],
+                            const SizedBox(height: 18),
+                            Row(
+                              children: [
+                                Expanded(
+                                  child: _DeviceStatCard(
+                                    iconName: 'thermometer',
+                                    iconColor: AppColors.primary,
+                                    iconBackground: const Color(0xFFFFF7ED),
+                                    label: '锅底温度',
+                                    value:
+                                        '${device.temp.toStringAsFixed(1)}°C',
+                                  ),
+                                ),
+                                const SizedBox(width: 12),
+                                Expanded(
+                                  child: _DeviceStatCard(
+                                    iconName: 'droplet',
+                                    iconColor: AppColors.info,
+                                    iconBackground: const Color(0xFFEFF6FF),
+                                    label: '燃气浓度',
+                                    value:
+                                        '${device.gas.toStringAsFixed(2)}% LEL',
+                                  ),
+                                ),
+                              ],
+                            ),
+                            const SizedBox(height: 22),
+                            Text(
+                              '智能烹饪模式',
+                              style: AppTypography.body.copyWith(
+                                fontSize: 15,
+                                fontWeight: FontWeight.w700,
+                              ),
+                            ),
+                            const SizedBox(height: 12),
+                            LayoutBuilder(
+                              builder: (context, constraints) {
+                                final itemWidth =
+                                    (constraints.maxWidth - 12) / 2;
+                                return Wrap(
+                                  spacing: 12,
+                                  runSpacing: 12,
+                                  children: cookingModes.map((mode) {
+                                    final active = device.isOn &&
+                                        device.fireLevel == mode.level;
+                                    return SizedBox(
+                                      width: itemWidth,
+                                      child: _CookingModeCard(
+                                        mode: mode,
+                                        active: active,
+                                        enabled: device.isOn && !_isPending,
+                                        pulseAnimation: _pulseController,
+                                        onTap: () => _handleFireLevel(
+                                            device, mode.level),
+                                      ),
+                                    );
+                                  }).toList(growable: false),
+                                );
+                              },
+                            ),
+                          ],
+                        ),
                       ),
                     ),
-                  ),
-          ),
-          if (_isRenameModalOpen && device != null)
-            _buildRenameModal(device, deviceState.devices),
-          if (_isShareModalOpen && device != null) _buildShareModal(device),
-        ],
+            ),
+            if (_isRenameModalOpen && device != null)
+              _buildRenameModal(device, deviceState.devices),
+            if (_isShareModalOpen && device != null) _buildShareModal(device),
+          ],
+        ),
       ),
     );
   }

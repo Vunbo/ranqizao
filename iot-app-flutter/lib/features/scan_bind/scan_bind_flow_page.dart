@@ -1,4 +1,4 @@
-﻿import 'dart:math' as math;
+import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -10,6 +10,7 @@ import '../../providers/device_provider.dart';
 import '../../services/api_client.dart';
 import '../../services/device_binding_runtime_service.dart';
 import '../../widgets/app_icon.dart';
+import '../../widgets/back_layer_scope.dart';
 import 'qr_scanner_page.dart';
 import 'scan_bind_provider.dart';
 
@@ -102,80 +103,93 @@ class _ScanBindFlowPageState extends ConsumerState<ScanBindFlowPage>
   @override
   Widget build(BuildContext context) {
     final state = ref.watch(scanBindProvider);
+    final hasInternalBackLayer = state.permissionDialog.visible ||
+        state.isLoading ||
+        (state.step != ScanBindStep.scan && state.step != ScanBindStep.success);
 
     if (widget.asModal) {
-      return Material(
-        color: Colors.transparent,
-        child: Stack(
-          children: [
-            Positioned.fill(
-              child: GestureDetector(
-                behavior: HitTestBehavior.opaque,
-                onTap: () => Navigator.of(context).pop(),
-                child: Container(color: AppColors.maskBg),
+      return BackLayerScope(
+        hasActiveLayer: hasInternalBackLayer,
+        onBack: () => ref.read(scanBindProvider.notifier).handleBack(),
+        child: Material(
+          color: Colors.transparent,
+          child: Stack(
+            children: [
+              Positioned.fill(
+                child: GestureDetector(
+                  behavior: HitTestBehavior.opaque,
+                  onTap: () => Navigator.of(context).pop(),
+                  child: Container(color: AppColors.maskBg),
+                ),
               ),
-            ),
+              SafeArea(
+                child: Align(
+                  alignment: Alignment.bottomCenter,
+                  child: AnimatedPadding(
+                    duration: const Duration(milliseconds: 180),
+                    curve: Curves.easeOut,
+                    padding: EdgeInsets.fromLTRB(
+                      20,
+                      16,
+                      20,
+                      24 + MediaQuery.of(context).viewInsets.bottom,
+                    ),
+                    child: ConstrainedBox(
+                      constraints: const BoxConstraints(maxWidth: 420),
+                      child: _buildFlowCard(state),
+                    ),
+                  ),
+                ),
+              ),
+              if (state.permissionDialog.visible)
+                _PermissionDialogOverlay(
+                  dialog: state.permissionDialog,
+                  onClose: () => ref
+                      .read(scanBindProvider.notifier)
+                      .closePermissionDialog(),
+                  onOpenSettings: () => ref
+                      .read(scanBindProvider.notifier)
+                      .openPermissionSettings(),
+                ),
+            ],
+          ),
+        ),
+      );
+    }
+
+    return BackLayerScope(
+      hasActiveLayer: hasInternalBackLayer,
+      onBack: () => ref.read(scanBindProvider.notifier).handleBack(),
+      child: Scaffold(
+        backgroundColor: AppColors.pageBg,
+        body: Stack(
+          children: [
             SafeArea(
-              child: Align(
-                alignment: Alignment.bottomCenter,
-                child: AnimatedPadding(
-                  duration: const Duration(milliseconds: 180),
-                  curve: Curves.easeOut,
-                  padding: EdgeInsets.fromLTRB(
-                    20,
-                    16,
-                    20,
-                    24 + MediaQuery.of(context).viewInsets.bottom,
-                  ),
-                  child: ConstrainedBox(
-                    constraints: const BoxConstraints(maxWidth: 420),
-                    child: _buildFlowCard(state),
-                  ),
+              child: SingleChildScrollView(
+                padding: const EdgeInsets.fromLTRB(20, 16, 20, 24),
+                child: Column(
+                  children: [
+                    _buildHeader(context),
+                    const SizedBox(height: 20),
+                    ConstrainedBox(
+                      constraints: const BoxConstraints(maxWidth: 420),
+                      child: _buildFlowCard(state),
+                    ),
+                  ],
                 ),
               ),
             ),
             if (state.permissionDialog.visible)
               _PermissionDialogOverlay(
                 dialog: state.permissionDialog,
-                onClose: () => ref
+                onClose: () =>
+                    ref.read(scanBindProvider.notifier).closePermissionDialog(),
+                onOpenSettings: () => ref
                     .read(scanBindProvider.notifier)
-                    .closePermissionDialog(),
-                onOpenSettings: () =>
-                    ref.read(scanBindProvider.notifier).openPermissionSettings(),
+                    .openPermissionSettings(),
               ),
           ],
         ),
-      );
-    }
-
-    return Scaffold(
-      backgroundColor: AppColors.pageBg,
-      body: Stack(
-        children: [
-          SafeArea(
-            child: SingleChildScrollView(
-              padding: const EdgeInsets.fromLTRB(20, 16, 20, 24),
-              child: Column(
-                children: [
-                  _buildHeader(context),
-                  const SizedBox(height: 20),
-                  ConstrainedBox(
-                    constraints: const BoxConstraints(maxWidth: 420),
-                    child: _buildFlowCard(state),
-                  ),
-                ],
-              ),
-            ),
-          ),
-          if (state.permissionDialog.visible)
-            _PermissionDialogOverlay(
-              dialog: state.permissionDialog,
-              onClose: () =>
-                  ref.read(scanBindProvider.notifier).closePermissionDialog(),
-              onOpenSettings: () =>
-                  ref.read(scanBindProvider.notifier).openPermissionSettings(),
-            ),
-        ],
       ),
     );
   }
@@ -203,7 +217,7 @@ class _ScanBindFlowPageState extends ConsumerState<ScanBindFlowPage>
     return Row(
       children: [
         GestureDetector(
-          onTap: () => Navigator.of(context).pop(),
+          onTap: _handleFlowBack,
           child: Container(
             width: 42,
             height: 42,
@@ -246,6 +260,13 @@ class _ScanBindFlowPageState extends ConsumerState<ScanBindFlowPage>
       ScanBindStep.naming => _buildNamingStep(state),
       ScanBindStep.success => _buildSuccessStep(),
     };
+  }
+
+  void _handleFlowBack() {
+    final handled = ref.read(scanBindProvider.notifier).handleBack();
+    if (!handled && mounted) {
+      Navigator.of(context).pop();
+    }
   }
 
   Widget _buildScanStep(ScanBindState state) {
@@ -1060,4 +1081,3 @@ class _PermissionDialogOverlay extends StatelessWidget {
     );
   }
 }
-

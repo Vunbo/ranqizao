@@ -1,4 +1,4 @@
-﻿import 'package:flutter/material.dart';
+import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/theme.dart';
@@ -10,6 +10,7 @@ import '../../../providers/device_provider.dart';
 import '../../../providers/home_provider.dart';
 import '../../../services/api_client.dart';
 import '../../../widgets/app_icon.dart';
+import '../../../widgets/back_layer_scope.dart';
 import 'profile_subview_scaffold.dart';
 
 class HomeManagementView extends ConsumerStatefulWidget {
@@ -121,7 +122,8 @@ class _HomeManagementViewState extends ConsumerState<HomeManagementView> {
         return;
       }
 
-      _tempSelectedDeviceIds = List<String>.from(_tempSelectedDeviceIds)..add(deviceId);
+      _tempSelectedDeviceIds = List<String>.from(_tempSelectedDeviceIds)
+        ..add(deviceId);
     });
   }
 
@@ -235,9 +237,8 @@ class _HomeManagementViewState extends ConsumerState<HomeManagementView> {
     });
 
     try {
-      await ref
-          .read(homeProvider.notifier)
-          .updateHomeDeviceLinks(home.id, List<String>.from(_tempSelectedDeviceIds));
+      await ref.read(homeProvider.notifier).updateHomeDeviceLinks(
+          home.id, List<String>.from(_tempSelectedDeviceIds));
       await ref.read(deviceProvider.notifier).loadDevices();
       if (!mounted) {
         return;
@@ -261,6 +262,7 @@ class _HomeManagementViewState extends ConsumerState<HomeManagementView> {
       );
     }
   }
+
   @override
   Widget build(BuildContext context) {
     final authState = ref.watch(authProvider);
@@ -278,46 +280,63 @@ class _HomeManagementViewState extends ConsumerState<HomeManagementView> {
     final ownedDevices = deviceState.devices
         .where((device) => (device.ownerId ?? '') == shortUid)
         .toList(growable: false);
-    final ownerDisplayName = _resolveOwnerDisplayName(currentHome, user, shortUid);
+    final ownerDisplayName =
+        _resolveOwnerDisplayName(currentHome, user, shortUid);
     final title = !isShowingDetail
         ? '家庭管理'
         : _isAdjusting
             ? '调整关联'
             : '${currentHome.name} 详情';
 
-    return ProfileSubviewScaffold(
-      title: title,
-      onBack: isShowingDetail ? _closeDetail : widget.onBack,
-      trailing: !isShowingDetail
-          ? _HeaderIconButton(
-              icon: 'plus',
-              color: AppColors.primary,
-              onTap: _openAddModal,
-            )
-          : !_isAdjusting
-              ? _HeaderIconButton(
-                  icon: 'trash',
-                  color: AppColors.danger,
-                  onTap: _openDeleteConfirm,
-                )
-              : null,
-      child: Stack(
-        children: [
-          if (!isShowingDetail)
-            _buildHomeList(homeState, user)
-          else
-            _buildHomeDetail(
-              context,
-              currentHome,
-              linkedDevices,
-              ownedDevices,
-              ownerDisplayName,
-            ),
-          if (_isAddModalOpen)
-            _buildAddModal(homeState.homes, user),
-          if (_isDeleteConfirmOpen && currentHome != null)
-            _buildDeleteConfirmModal(currentHome),
-        ],
+    return BackLayerScope(
+      hasActiveLayer: _isAddModalOpen ||
+          _isDeleteConfirmOpen ||
+          _isAdjusting ||
+          isShowingDetail,
+      onBack: () {
+        if (_isDeleteConfirmOpen) {
+          _closeDeleteConfirm();
+        } else if (_isAddModalOpen) {
+          _closeAddModal();
+        } else if (_isAdjusting) {
+          _cancelAdjust();
+        } else if (isShowingDetail) {
+          _closeDetail();
+        }
+      },
+      child: ProfileSubviewScaffold(
+        title: title,
+        onBack: isShowingDetail ? _closeDetail : widget.onBack,
+        trailing: !isShowingDetail
+            ? _HeaderIconButton(
+                icon: 'plus',
+                color: AppColors.primary,
+                onTap: _openAddModal,
+              )
+            : !_isAdjusting
+                ? _HeaderIconButton(
+                    icon: 'trash',
+                    color: AppColors.danger,
+                    onTap: _openDeleteConfirm,
+                  )
+                : null,
+        child: Stack(
+          children: [
+            if (!isShowingDetail)
+              _buildHomeList(homeState, user)
+            else
+              _buildHomeDetail(
+                context,
+                currentHome,
+                linkedDevices,
+                ownedDevices,
+                ownerDisplayName,
+              ),
+            if (_isAddModalOpen) _buildAddModal(homeState.homes, user),
+            if (_isDeleteConfirmOpen && currentHome != null)
+              _buildDeleteConfirmModal(currentHome),
+          ],
+        ),
       ),
     );
   }
@@ -341,7 +360,8 @@ class _HomeManagementViewState extends ConsumerState<HomeManagementView> {
             GestureDetector(
               onTap: () => _openHome(homeState.homes[index].id),
               child: ProfileSurfaceCard(
-                margin: EdgeInsets.only(bottom: index == homeState.homes.length - 1 ? 0 : 12),
+                margin: EdgeInsets.only(
+                    bottom: index == homeState.homes.length - 1 ? 0 : 12),
                 padding: const EdgeInsets.all(16),
                 child: Row(
                   children: [
@@ -393,8 +413,7 @@ class _HomeManagementViewState extends ConsumerState<HomeManagementView> {
                 ),
               ),
             ),
-          if (homeState.homes.isEmpty && user != null)
-            const SizedBox.shrink(),
+          if (homeState.homes.isEmpty && user != null) const SizedBox.shrink(),
         ],
       ),
     );
@@ -427,7 +446,8 @@ class _HomeManagementViewState extends ConsumerState<HomeManagementView> {
                   trailing: GestureDetector(
                     onTap: () => _startAdjust(home),
                     child: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 10, vertical: 6),
                       decoration: BoxDecoration(
                         color: AppColors.primaryLight,
                         borderRadius: BorderRadius.circular(12),
@@ -483,7 +503,8 @@ class _HomeManagementViewState extends ConsumerState<HomeManagementView> {
                 for (var index = 0; index < home.members.length; index++)
                   _buildMemberCard(
                     initial: _displayInitial(home.members[index]),
-                    name: _resolveHomeMemberDisplayName(home, home.members[index]),
+                    name: _resolveHomeMemberDisplayName(
+                        home, home.members[index]),
                     role: '家庭成员',
                     highlighted: false,
                     marginTop: 10,
@@ -548,6 +569,7 @@ class _HomeManagementViewState extends ConsumerState<HomeManagementView> {
       ],
     );
   }
+
   Widget _buildAddModal(List<Home> homes, User? user) {
     return ProfileModalMask(
       onDismiss: _closeAddModal,
@@ -686,7 +708,8 @@ class _HomeManagementViewState extends ConsumerState<HomeManagementView> {
                     label: _isDeletingHome ? '删除中...' : '确认删除',
                     backgroundColor: AppColors.danger,
                     textColor: Colors.white,
-                    onTap: _isDeletingHome ? null : () => _handleDeleteHome(home),
+                    onTap:
+                        _isDeletingHome ? null : () => _handleDeleteHome(home),
                   ),
                 ),
               ],
@@ -743,7 +766,8 @@ class _HomeManagementViewState extends ConsumerState<HomeManagementView> {
               style: TextStyle(
                 fontSize: 12,
                 fontWeight: FontWeight.w700,
-                color: highlighted ? AppColors.primary : AppColors.textSecondary,
+                color:
+                    highlighted ? AppColors.primary : AppColors.textSecondary,
               ),
             ),
           ),
@@ -972,7 +996,9 @@ class _DeviceGrid extends StatelessWidget {
                     AppIcon(
                       name: 'flame',
                       size: 18,
-                      color: selected ? AppColors.primary : AppColors.textSecondary,
+                      color: selected
+                          ? AppColors.primary
+                          : AppColors.textSecondary,
                     ),
                     const SizedBox(height: 10),
                     Text(
