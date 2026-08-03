@@ -14,7 +14,7 @@ RUN npm run build:prod
 
 FROM nginx:1.27-alpine
 
-COPY deplay/nginx.conf /etc/nginx/conf.d/default.conf
+COPY deploy/nginx.conf /etc/nginx/conf.d/default.conf
 COPY --from=builder /app/dist /usr/share/nginx/html
 
 EXPOSE 80

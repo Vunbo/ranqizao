@@ -12,7 +12,7 @@ services:
     restart: unless-stopped
     environment:
       POSTGRES_USER: "${PGUSER:-postgres}"
-      POSTGRES_PASSWORD: "${PGPASSWORD:?PGPASSWORD must be set in deplay/.env}"
+      POSTGRES_PASSWORD: "${PGPASSWORD:?PGPASSWORD must be set in deploy/.env}"
       POSTGRES_DB: "${PGDATABASE:-ai_iot_safety_stove_control}"
     volumes:
       - postgres-data:/var/lib/postgresql/data
@@ -27,7 +27,7 @@ services:
   iot-backend:
     build:
       context: ..
-      dockerfile: deplay/Dockerfile
+      dockerfile: deploy/Dockerfile
     restart: unless-stopped
     init: true
     depends_on:
@@ -38,7 +38,7 @@ services:
     environment:
       PGHOST: postgres
       PGUSER: "${PGUSER:-postgres}"
-      PGPASSWORD: "${PGPASSWORD:?PGPASSWORD must be set in deplay/.env}"
+      PGPASSWORD: "${PGPASSWORD:?PGPASSWORD must be set in deploy/.env}"
       PGDATABASE: "${PGDATABASE:-ai_iot_safety_stove_control}"
     ports:
       - "127.0.0.1:3001:3001"
@@ -53,7 +53,7 @@ services:
   iot-ops-web:
     build:
       context: ../../iot-ops-web-dev
-      dockerfile: deplay/Dockerfile
+      dockerfile: deploy/Dockerfile
       args:
         VITE_API_BASE_URL: /api
     restart: unless-stopped

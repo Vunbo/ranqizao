@@ -22,7 +22,7 @@ Docker 网络内的 `/api` 转发，两者职责不同，不要删除前端容�
 ```text
 /www/wwwroot/ranqizao/
 ├── iot-platform-backend-dev/
-│   ├── deplay/
+│   ├── deploy/
 │   │   ├── docker-compose.production.yml
 │   │   ├── backend.env.production.template
 │   │   ├── Dockerfile
@@ -31,7 +31,7 @@ Docker 网络内的 `/api` 转发，两者职责不同，不要删除前端容�
 │   ├── package.json
 │   └── src/
 └── iot-ops-web-dev/
-    ├── deplay/
+    ├── deploy/
     │   ├── Dockerfile
     │   └── nginx.conf
     ├── package.json
@@ -46,7 +46,7 @@ Docker 网络内的 `/api` 转发，两者职责不同，不要删除前端容�
 在宝塔终端执行：
 
 ```bash
-cd /www/wwwroot/ranqizao/iot-platform-backend-dev/deplay
+cd /www/wwwroot/ranqizao/iot-platform-backend-dev/deploy
 cp backend.env.production.template .env
 chmod 600 .env
 vi .env
@@ -79,7 +79,7 @@ AK、SK 和 project ID。`HUAWEI_IOTDA_CALLBACK_SECRET` 是项目接收 IoTDA �
 2. 进入“容器编排”，选择“添加编排”。
 3. 编排名称填写 `ranqizao`。
 4. 工作目录选择：
-   `/www/wwwroot/ranqizao/iot-platform-backend-dev/deplay`。
+   `/www/wwwroot/ranqizao/iot-platform-backend-dev/deploy`。
 5. Compose 文件选择该目录下的 `docker-compose.production.yml`；如果面板要求
    粘贴内容，粘贴此文件完整内容，工作目录仍必须设置为上述目录。
 6. 执行“创建并启动”或“构建镜像并启动”。
@@ -95,7 +95,7 @@ AK、SK 和 project ID。`HUAWEI_IOTDA_CALLBACK_SECRET` 是项目接收 IoTDA �
 如宝塔版本没有“工作目录”选项，可在终端执行同一套编排：
 
 ```bash
-cd /www/wwwroot/ranqizao/iot-platform-backend-dev/deplay
+cd /www/wwwroot/ranqizao/iot-platform-backend-dev/deploy
 docker compose -f docker-compose.production.yml config --quiet
 docker compose -f docker-compose.production.yml up -d --build
 docker compose -f docker-compose.production.yml ps
@@ -144,7 +144,7 @@ curl https://你的域名/api/health
 查看日志：
 
 ```bash
-cd /www/wwwroot/ranqizao/iot-platform-backend-dev/deplay
+cd /www/wwwroot/ranqizao/iot-platform-backend-dev/deploy
 docker compose -f docker-compose.production.yml logs -f iot-backend
 docker compose -f docker-compose.production.yml logs -f iot-ops-web
 ```
@@ -156,7 +156,7 @@ docker compose -f docker-compose.production.yml logs -f iot-ops-web
 拉取新代码后重新构建：
 
 ```bash
-cd /www/wwwroot/ranqizao/iot-platform-backend-dev/deplay
+cd /www/wwwroot/ranqizao/iot-platform-backend-dev/deploy
 docker compose -f docker-compose.production.yml up -d --build
 ```
 
