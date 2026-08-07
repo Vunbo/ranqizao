@@ -3,7 +3,7 @@ class RuntimeConfig {
 
   static const String apiBaseUrl = String.fromEnvironment(
     'VITE_API_BASE_URL',
-    defaultValue: 'http://192.168.102.105:3001/api',
+    defaultValue: 'https://api.aistove.cn/api',
   );
 
   static const String miniProgramLoginPath = String.fromEnvironment(
